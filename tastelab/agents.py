@@ -1,0 +1,242 @@
+"""The Taste Lab agent pipeline.
+
+    brief -> plan personas -> resolve seeds in Qloo -> taste signatures (Qloo insights)
+          -> focus-group reactions -> moderator synthesis -> city fit (Qloo location insights)
+          -> persona ad copy
+
+Every claim carries evidence ids (Q1, Q2, ...) that point at a concrete Qloo result, so the
+UI can show *why* an insight exists. If no Gemini key is set, deterministic offline text is
+used; the Qloo data (live or demo) is the same either way.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from statistics import mean
+from typing import Any
+
+from . import config, demo_data
+from .llm import LLM
+from .qloo_client import Entity, QlooClient, QlooError
+
+SIGNATURE_TYPES = ["artist", "brand", "movie"]
+
+
+@dataclass
+class Brief:
+    product_name: str
+    description: str
+    audience: str = ""
+    price_point: str = ""
+    market: str = "US + EU"
+    cities: list[str] = field(default_factory=lambda: list(config.DEFAULT_CITIES))
+    num_personas: int = 4
+
+
+class Evidence:
+    """Registry that hands out stable ids (Q1, Q2...) for Qloo results."""
+
+    def __init__(self) -> None:
+        self.items: dict[str, dict[str, Any]] = {}
+        self._by_key: dict[tuple, str] = {}
+
+    def add(self, ent: Entity, via: str, context: str = "") -> str:
+        key = (ent.id, via, context)
+        if key in self._by_key:
+            return self._by_key[key]
+        eid = f"Q{len(self.items) + 1}"
+        self.items[eid] = {"id": eid, "entity": ent.name, "type": ent.type, "affinity": ent.affinity,
+                           "qloo_id": ent.id, "via": via, "context": context, "demo": ent.demo}
+        self._by_key[key] = eid
+        return eid
+
+
+# --------------------------------------------------------------------------- personas
+def plan_personas(brief: Brief, llm: LLM) -> list[dict[str, Any]]:
+    prompt = f"""You design buyer personas for a small e-commerce brand selling to {brief.market}.
+Product: {brief.product_name}
+Description: {brief.description}
+Target audience hint: {brief.audience or 'not specified'}
+Price point: {brief.price_point or 'not specified'}
+
+Return JSON: {{"personas": [{{"name": str, "tagline": str, "seeds": [{{"name": str, "type": "artist"|"brand"|"movie"}}]}}]}}
+Create {brief.num_personas} clearly different personas. Each has 3 seeds: real, well-known artists, brands or
+movies that this persona genuinely loves (mix of types). Seeds are used to query a taste-graph API."""
+    data = llm.json(prompt, system="You are a precise consumer-insights strategist. Output JSON only.")
+    personas: list[dict[str, Any]] = []
+    if isinstance(data, dict):
+        for p in (data.get("personas") or [])[: brief.num_personas]:
+            seeds = [(s.get("name"), s.get("type")) for s in p.get("seeds", [])
+                     if isinstance(s, dict) and s.get("name") and s.get("type") in SIGNATURE_TYPES]
+            if p.get("name") and seeds:
+                personas.append({"name": str(p["name"]), "tagline": str(p.get("tagline", "")), "seeds": seeds})
+    if len(personas) < min(2, brief.num_personas):
+        personas = [dict(a, seeds=list(a["seeds"])) for a in demo_data.ARCHETYPES[: brief.num_personas]]
+    return personas
+
+
+def build_signature(client: QlooClient, ev: Evidence, persona: dict[str, Any]) -> dict[str, Any]:
+    """Resolve the persona's seeds, then ask Qloo what else this taste cluster loves."""
+    resolved: list[Entity] = []
+    for name, etype in persona["seeds"]:
+        hits = client.search(name, etype, take=1)
+        if hits:
+            resolved.append(hits[0])
+    seed_ids = [e.id for e in resolved]
+    seed_refs = [{"entity": e.name, "type": e.type, "evidence": ev.add(e, "search", f"seed for {persona['name']}")}
+                 for e in resolved]
+    signature: dict[str, list[dict[str, Any]]] = {}
+    for t in SIGNATURE_TYPES:
+        rows = []
+        for ent in client.insights(t, seed_ids, take=5):
+            rows.append({"name": ent.name, "affinity": ent.affinity,
+                         "evidence": ev.add(ent, "insights", f"{t} affinity for {persona['name']}")})
+        signature[t] = rows
+    return {"seeds": seed_refs, "seed_ids": seed_ids, "signature": signature}
+
+
+# --------------------------------------------------------------------------- focus group
+def _sig_text(sig: dict[str, Any]) -> str:
+    lines = []
+    for t, rows in sig["signature"].items():
+        if rows:
+            lines.append(f"{t}: " + ", ".join(f"{r['name']} [{r['evidence']}]" for r in rows))
+    return "\n".join(lines)
+
+
+def react(brief: Brief, persona: dict[str, Any], sig: dict[str, Any], llm: LLM) -> dict[str, Any]:
+    prompt = f"""Persona: {persona['name']} - {persona['tagline']}
+Verified taste signature from Qloo (evidence ids in brackets):
+{_sig_text(sig)}
+
+Product: {brief.product_name} - {brief.description} (price: {brief.price_point or 'n/a'}; market: {brief.market})
+
+React in first person as this persona. Ground every point in the taste signature and cite evidence ids.
+Return JSON: {{"reaction": str (2-3 sentences), "score": int 1-10 (purchase intent), "loves": [str], "concerns": [str], "evidence": [str]}}"""
+    data = llm.json(prompt, system="You simulate consumers faithfully; never invent facts beyond the signature.")
+    all_ev = [r["evidence"] for rows in sig["signature"].values() for r in rows]
+    if isinstance(data, dict) and data.get("reaction"):
+        try:
+            score = max(1, min(10, int(data.get("score", 6))))
+        except (TypeError, ValueError):
+            score = 6
+        return {"reaction": str(data["reaction"]), "score": score,
+                "loves": [str(x) for x in data.get("loves", [])][:4],
+                "concerns": [str(x) for x in data.get("concerns", [])][:4],
+                "evidence": [str(x) for x in data.get("evidence", [])] or all_ev[:3]}
+    # offline fallback: deterministic, derived from real affinity numbers
+    affs = [r["affinity"] for rows in sig["signature"].values() for r in rows if r["affinity"] is not None]
+    avg = mean(affs) if affs else 0.6
+    score = max(3, min(9, round(avg * 10) - 1 + demo_data.stable_int(persona["name"], brief.product_name) % 2))
+    top = [r for rows in sig["signature"].values() for r in rows][:2]
+    anchors = " and ".join(f"{r['name']}" for r in top) or "my usual favourites"
+    return {
+        "reaction": (f"As someone whose taste runs through {anchors}, {brief.product_name} feels "
+                     f"{'like a natural fit' if score >= 7 else 'interesting but not yet a must-have'}. "
+                     "I would want the story and design to match what I already follow."),
+        "score": int(score),
+        "loves": [f"Fits the {persona['name'].lower().removeprefix('the ')} mindset", "Clear, honest positioning"],
+        "concerns": ["Needs proof of quality or values", "Price should feel justified"],
+        "evidence": [r["evidence"] for r in top] or all_ev[:2],
+    }
+
+
+def moderate(brief: Brief, results: list[dict[str, Any]], llm: LLM) -> str:
+    summary = "\n".join(f"- {r['persona']['name']}: score {r['reaction']['score']}/10. {r['reaction']['reaction']}"
+                        for r in results)
+    data = llm.json(
+        f"""You moderate a synthetic focus group for {brief.product_name}.
+{summary}
+Return JSON: {{"synthesis": str}} - 3-4 sentences: where personas agree, where they disagree, and the single
+positioning angle that works best across them.""")
+    if isinstance(data, dict) and data.get("synthesis"):
+        return str(data["synthesis"])
+    best = max(results, key=lambda r: r["reaction"]["score"])
+    worst = min(results, key=lambda r: r["reaction"]["score"])
+    return (f"Strongest pull comes from {best['persona']['name']} ({best['reaction']['score']}/10); "
+            f"{worst['persona']['name']} is the hardest sell ({worst['reaction']['score']}/10). "
+            "Lead with the angle the top persona already loves, and answer the concerns of the weakest one "
+            "before spending on that segment.")
+
+
+# --------------------------------------------------------------------------- city fit
+def city_fit(client: QlooClient, ev: Evidence, brief: Brief, seed_ids: list[str]) -> list[dict[str, Any]]:
+    rows = []
+    for city in brief.cities:
+        try:
+            places = client.insights("place", seed_ids, location=city, take=8)
+        except QlooError:
+            places = []
+        affs = [p.affinity for p in places if p.affinity is not None]
+        score = round(mean(affs) * 100) if affs else 0
+        top = [{"name": p.name, "affinity": p.affinity,
+                "evidence": ev.add(p, "insights", f"place affinity in {city}")} for p in places[:3]]
+        rows.append({"city": city, "score": score, "top_places": top})
+    rows.sort(key=lambda r: r["score"], reverse=True)
+    return rows
+
+
+# --------------------------------------------------------------------------- ad copy
+def ad_copy(brief: Brief, persona: dict[str, Any], sig: dict[str, Any], reaction: dict[str, Any],
+            llm: LLM) -> dict[str, Any]:
+    prompt = f"""Write ad copy for {brief.product_name} ({brief.description}) aimed at: {persona['name']} - {persona['tagline']}.
+Taste signature from Qloo:
+{_sig_text(sig)}
+Their concerns: {reaction['concerns']}
+Return JSON: {{"headline": str (<=8 words), "body": str (<=35 words), "cta": str, "hook_reason": str, "evidence": [str]}}.
+The hook must reference a taste signal by name and cite its evidence id. No fake claims or testimonials."""
+    data = llm.json(prompt, system="You are a direct-response copywriter who never fabricates claims.")
+    if isinstance(data, dict) and data.get("headline"):
+        return {k: (data.get(k, "") if k != "evidence" else [str(x) for x in data.get("evidence", [])])
+                for k in ("headline", "body", "cta", "hook_reason", "evidence")}
+    top = next((r for rows in sig["signature"].values() for r in rows), None)
+    anchor = top["name"] if top else "what you love"
+    return {
+        "headline": f"{brief.product_name}, made for {persona['name'].replace('The ', '').lower()}s",
+        "body": f"If you are into {anchor}, you will notice the details. {brief.description[:90].rstrip('.')}.",
+        "cta": "Take a closer look",
+        "hook_reason": f"Opens with {anchor}, a high-affinity signal for this persona.",
+        "evidence": [top["evidence"]] if top else [],
+    }
+
+
+# --------------------------------------------------------------------------- orchestrator
+def run_taste_lab(brief: Brief, client: QlooClient, llm: LLM, progress=None) -> dict[str, Any]:
+    def tick(msg: str) -> None:
+        if progress:
+            progress(msg)
+
+    ev = Evidence()
+    tick("Designing personas")
+    personas = plan_personas(brief, llm)
+
+    results: list[dict[str, Any]] = []
+    for p in personas:
+        tick(f"Querying Qloo for {p['name']}")
+        sig = build_signature(client, ev, p)
+        tick(f"Focus group: {p['name']}")
+        reaction = react(brief, p, sig, llm)
+        results.append({"persona": p, "signature": sig, "reaction": reaction})
+
+    tick("Moderator synthesis")
+    synthesis = moderate(brief, results, llm)
+
+    tick("Ranking cities with Qloo location insights")
+    union_ids = list(dict.fromkeys(i for r in results for i in r["signature"]["seed_ids"]))
+    cities = city_fit(client, ev, brief, union_ids)
+
+    tick("Writing persona-specific ad copy")
+    for r in results:
+        r["ad"] = ad_copy(brief, r["persona"], r["signature"], r["reaction"], llm)
+
+    return {
+        "brief": brief.__dict__,
+        "mode": client.mode,
+        "llm": "gemini" if llm.available else "offline-fallback",
+        "personas": results,
+        "synthesis": synthesis,
+        "cities": cities,
+        "evidence": ev.items,
+        "trace": client.trace,
+        "warnings": list(llm.warnings),
+    }
