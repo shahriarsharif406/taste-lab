@@ -223,6 +223,19 @@ button[role="tab"],button[role="tab"] *{font-family:var(--serif)!important;font-
 @keyframes tl-d1{from{transform:translate(0,0) scale(1)}to{transform:translate(8%,10%) scale(1.15)}}
 @keyframes tl-d2{from{transform:translate(0,0) scale(1.05)}to{transform:translate(-10%,-8%) scale(.92)}}
 @media (max-width:820px){.tl-top{font-size:.8rem}.tl-cover{height:260px}}
+
+/* ---- v5: bottle-green cover with brass foil masthead ---- */
+.tl-cover{background:var(--grain),radial-gradient(120% 95% at 18% 0%,#1E4036 0%,#112620 48%,#08120F 100%);background-blend-mode:soft-light,normal;box-shadow:0 34px 60px -44px rgba(8,18,15,.9)}
+.tl-cover .orb{display:none}
+.tl-cover:before{opacity:.35}
+.tl-cover:after{border:1px solid rgba(217,190,133,.5);inset:16px}
+.tl-top{color:#D9BE85;left:38px;right:38px;top:36px;font-style:italic;font-family:var(--serif);font-size:1.1rem}
+.tl-mast{left:38px;bottom:26px;font-size:clamp(4.4rem,15vw,13.5rem);font-weight:400;letter-spacing:-.05em;line-height:.92;color:transparent;background:linear-gradient(100deg,#8C6B2E 0%,#E9D7A6 22%,#B8934A 40%,#F7EBC8 58%,#A58040 78%,#E4CF98 100%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;text-shadow:none;filter:drop-shadow(0 10px 28px rgba(0,0,0,.45))}
+.tl-dots{position:absolute;right:40px;bottom:36px;display:flex;z-index:3}
+.tl-dots i{width:30px;height:30px;border-radius:50%;margin-left:-9px;border:1px solid rgba(217,190,133,.8)}
+@media (prefers-reduced-motion:no-preference){.tl-mast{animation:tl-foil 9s ease-in-out infinite alternate}}
+@keyframes tl-foil{from{background-position:0% 0}to{background-position:100% 0}}
+@media (max-width:820px){.tl-dots{display:none}.tl-top{left:24px;right:24px;font-size:.85rem}.tl-mast{left:24px}}
 """
 
 e = html.escape
@@ -248,7 +261,8 @@ def style_tag() -> str:
 def hero() -> str:
     return ('<div class="tl-cover"><i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i><i class="orb o4"></i>'
             '<div class="tl-top"><span>Taste intelligence for fashion and lifestyle brands</span><span>Powered by Qloo</span></div>'
-            '<div class="tl-mast">Taste Lab</div></div>'
+            '<div class="tl-mast">Taste Lab</div>'
+            + '<div class="tl-dots">' + ''.join(f'<i style="background:{c}"></i>' for c in PALETTE) + '</div></div>'
             '<div class="tl-subline"><p>Know who will love it, where they live, and what to say to them.</p>'
             '<small>Buyer personas built from Qloo taste data, tested by a synthetic focus group.</small></div>')
 
