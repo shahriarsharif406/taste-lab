@@ -55,6 +55,7 @@ class QlooClient:
     session: Any = None
     trace: list[dict[str, Any]] = field(default_factory=list)
     _cache: dict[str, Any] = field(default_factory=dict)
+    _last_ms: float = 0.0
 
     def __post_init__(self) -> None:
         if self.demo is None:
@@ -80,6 +81,7 @@ class QlooClient:
             raise QlooError("QLOO_API_KEY is not set; refusing to call the live API.")
         cache_key = path + "?" + "&".join(f"{k}={params[k]}" for k in sorted(params))
         if cache_key in self._cache:
+            self._last_ms = 0.0
             return self._cache[cache_key]
         url = self.base_url + path
         headers = {"X-Api-Key": self.api_key, "Accept": "application/json"}
@@ -107,6 +109,7 @@ class QlooClient:
             except ValueError as exc:
                 self._record(path, params, resp.status_code, ms, 0)
                 raise QlooError(f"Qloo {path} returned non-JSON") from exc
+            self._last_ms = ms
             self._cache[cache_key] = data
             return data
         raise QlooError(f"Qloo {path} failed: {last}")
@@ -144,7 +147,7 @@ class QlooClient:
             return [e for e in (self._to_entity(r, entity_type or "brand", True) for r in raw) if e]
         data = self._get("/search", params)
         items = self._items(data)
-        self._record("/search", params, 200, 0, len(items))
+        self._record("/search", params, 200, self._last_ms, len(items))
         return [e for e in (self._to_entity(r, entity_type or "brand", False) for r in items) if e]
 
     def insights(self, entity_type: str, signal_ids: list[str], location: str | None = None,
@@ -165,7 +168,7 @@ class QlooClient:
             return [e for e in (self._to_entity(r, entity_type, True) for r in raw) if e]
         data = self._get("/v2/insights", params)
         items = self._items(data)
-        self._record("/v2/insights", params, 200, 0, len(items))
+        self._record("/v2/insights", params, 200, self._last_ms, len(items))
         return [e for e in (self._to_entity(r, entity_type, False) for r in items) if e]
 
 
