@@ -14,6 +14,9 @@ import requests
 from . import config
 
 
+_GOOD_MODEL: dict[str, str] = {}  # remembers the model that last worked, across runs
+
+
 @dataclass
 class LLM:
     api_key: str | None = None
@@ -73,6 +76,7 @@ class LLM:
         Retries busy (429/503) and timed-out calls, then moves on to the next available Flash model."""
         if not self.available:
             return None
+        self.model = _GOOD_MODEL.get("m", self.model)
         order = [self.model] + [m for m in self.candidates() if m != self.model]
         last = "no model available"
         for model in order[:4]:
@@ -96,6 +100,7 @@ class LLM:
                         break  # wrong/retired model: try the next one
                     text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
                     self.model = model
+                    _GOOD_MODEL["m"] = model
                     return parse_json_loose(text)
                 except (requests.RequestException, KeyError, IndexError, ValueError) as exc:
                     last = f"{model} {type(exc).__name__}"
