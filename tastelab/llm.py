@@ -17,9 +17,10 @@ from . import config
 class LLM:
     api_key: str | None = None
     model: str = config.DEFAULT_GEMINI_MODEL
-    timeout: float = 60.0
+    timeout: float = 90.0
     session: Any = None
     warnings: list[str] = field(default_factory=list)
+    fast_thinking: bool = True
 
     def __post_init__(self) -> None:
         if self.session is None:
@@ -61,11 +62,16 @@ class LLM:
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"},
         }
+        if self.fast_thinking:
+            body["generationConfig"]["thinkingConfig"] = {"thinkingLevel": "low"}
         if system:
             body["systemInstruction"] = {"parts": [{"text": system}]}
         try:
             resp = self.session.post(url, json=body, timeout=self.timeout,
                                      headers={"x-goog-api-key": self.api_key})
+            if resp.status_code == 400 and self.fast_thinking:
+                self.fast_thinking = False  # this model rejects thinkingConfig: retry plainly
+                return self.json(prompt, system)
             if resp.status_code in (400, 404) and not getattr(self, "_retried", False):
                 self._retried = True
                 alt = self.pick_model()

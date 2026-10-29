@@ -11,7 +11,9 @@ bad = [i for i, ch in enumerate(raw) if not (32 < ord(ch) < 127)]
 print("raw key length:", len(raw), "| bad characters at positions:", bad or "none", "| starts with:", raw[:3])
 llm = llm_from_env()
 print("key set:", llm.available, "| model:", llm.model)
+import time
+t0 = time.time()
 out = llm.json('Reply with JSON {"ok": true, "word": "hello"}')
-print("RESULT:", out)
+print("RESULT:", out, "| seconds:", round(time.time() - t0, 1))
 print("model used:", llm.model)
 print("WARNINGS:", llm.warnings or "none")
