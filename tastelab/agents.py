@@ -160,20 +160,45 @@ positioning angle that works best across them.""")
 
 
 # --------------------------------------------------------------------------- city fit
-def city_fit(client: QlooClient, ev: Evidence, brief: Brief, seed_ids: list[str]) -> list[dict[str, Any]]:
-    rows = []
-    for city in brief.cities:
-        try:
-            places = client.insights("place", seed_ids, location=city, take=8)
-        except QlooError:
-            places = []
-        affs = [p.affinity for p in places if p.affinity is not None]
-        score = round(mean(affs) * 100) if affs else 0
-        top = [{"name": p.name, "affinity": p.affinity,
-                "evidence": ev.add(p, "insights", f"place affinity in {city}")} for p in places[:3]]
-        rows.append({"city": city, "score": score, "top_places": top})
-    rows.sort(key=lambda r: r["score"], reverse=True)
-    return rows
+def _places(client: QlooClient, seed_ids: list[str], city: str) -> list[Entity]:
+    try:
+        return client.insights("place", seed_ids, location=city, take=8)
+    except QlooError:
+        return []
+
+
+def _mean_aff(places: list[Entity]) -> float:
+    affs = [p.affinity for p in places if p.affinity is not None]
+    return round(mean(affs) * 100, 1) if affs else 0.0
+
+
+def city_fit(client: QlooClient, ev: Evidence, brief: Brief, seed_ids: list[str],
+             persona_seeds: list[tuple[str, list[str]]] | None = None) -> list[dict[str, Any]]:
+    """Rank cities. Overall score uses all personas' seeds together; ``by_persona`` scores each
+    persona's own seeds separately, so different audiences can favour different cities."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    persona_seeds = persona_seeds or []
+    jobs: list[tuple[str | None, str, list[str]]] = [(None, c, seed_ids) for c in brief.cities]
+    jobs += [(name, c, ids) for name, ids in persona_seeds for c in brief.cities]
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(lambda j: _places(client, j[2], j[1]), jobs))
+
+    rows: dict[str, dict[str, Any]] = {}
+    for (name, city, _), places in zip(jobs, results):
+        row = rows.setdefault(city, {"city": city, "score": 0.0, "top_places": [], "by_persona": {}})
+        if name is None:  # overall (evidence is added sequentially, so ids stay deterministic)
+            row["score"] = _mean_aff(places)
+            row["top_places"] = [{"name": p.name, "affinity": p.affinity,
+                                  "evidence": ev.add(p, "insights", f"place affinity in {city}")}
+                                 for p in places[:3]]
+        else:
+            row["by_persona"][name] = _mean_aff(places)
+    out = sorted(rows.values(), key=lambda r: r["score"], reverse=True)
+    avg = mean(r["score"] for r in out) if out else 0.0
+    for r in out:
+        r["vs_avg"] = round(r["score"] - avg, 1)
+    return out
 
 
 # --------------------------------------------------------------------------- ad copy
@@ -223,7 +248,8 @@ def run_taste_lab(brief: Brief, client: QlooClient, llm: LLM, progress=None) -> 
 
     tick("Ranking cities with Qloo location insights")
     union_ids = list(dict.fromkeys(i for r in results for i in r["signature"]["seed_ids"]))
-    cities = city_fit(client, ev, brief, union_ids)
+    cities = city_fit(client, ev, brief, union_ids,
+                      [(r['persona']['name'], r['signature']['seed_ids']) for r in results])
 
     tick("Writing persona-specific ad copy")
     for r in results:

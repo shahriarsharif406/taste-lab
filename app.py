@@ -84,6 +84,9 @@ run = st.session_state.get("run")
 if run:
     if run["mode"] == "demo":
         st.info("Showing DEMO results (synthetic).")
+    if run["llm"] != "gemini":
+        st.warning("Gemini key not set: persona reactions, scores and ad copy use generic templates. "
+                   "The Qloo data (signals, cities, evidence) is real.")
     for w in run["warnings"][:3]:
         st.caption(f"Note: {w}")
     st.subheader("Focus-group synthesis")
@@ -103,10 +106,27 @@ if run:
                     if rows:
                         st.markdown(f"*Qloo {t} signal:* " + ", ".join(f"{x['name']} `{x['evidence']}`" for x in rows))
     with t2:
-        st.bar_chart({c["city"]: c["score"] for c in run["cities"]})
+        import altair as alt
+        import pandas as pd
+
+        cdf = pd.DataFrame([{"City": c["city"], "Points vs average": c["vs_avg"], "Score": c["score"]}
+                            for c in run["cities"]])
+        chart = (alt.Chart(cdf).mark_bar().encode(
+            x=alt.X("City:N", sort=None, axis=alt.Axis(labelAngle=0)),
+            y=alt.Y("Points vs average:Q"),
+            color=alt.condition(alt.datum["Points vs average"] > 0, alt.value("#14b8a6"), alt.value("#94a3b8")),
+            tooltip=["City", "Score", "Points vs average"]).properties(height=300))
+        st.altair_chart(chart, width="stretch")
+        st.caption("Bars show each city's Qloo place-affinity score relative to the average of the compared "
+                   "cities (points). Taste fit is similar across big cities, so differences are small; "
+                   "the table below shows which city suits which persona best.")
         for c in run["cities"]:
             places = ", ".join(f"{p['name']} `{p['evidence']}`" for p in c["top_places"]) or "no data returned"
-            st.markdown(f"**{c['city']}: {c['score']}/100.** {places}")
+            st.markdown(f"**{c['city']}: {c['score']}/100** ({c['vs_avg']:+.1f} vs avg). {places}")
+        matrix = pd.DataFrame({c["city"]: c["by_persona"] for c in run["cities"]})
+        if not matrix.empty:
+            st.markdown("**Best city per persona** (Qloo place affinity, 0-100)")
+            st.dataframe(matrix.style.highlight_max(axis=1, color="#99f6e4").format("{:.1f}"), width="stretch")
     with t3:
         for r in run["personas"]:
             ad = r["ad"]

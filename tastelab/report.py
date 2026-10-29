@@ -19,7 +19,14 @@ def to_markdown(run: dict[str, Any]) -> str:
               "## Focus-group synthesis", run["synthesis"], "", "## Best-fit cities"]
     for c in run["cities"]:
         places = "; ".join(f"{p['name']} [{p['evidence']}]" for p in c["top_places"]) or "no data"
-        lines.append(f"- **{c['city']}**: {c['score']}/100 ({places})")
+        lines.append(f"- **{c['city']}**: {c['score']}/100 ({c.get('vs_avg', 0):+.1f} vs avg) ({places})")
+    best = {}
+    for c in run["cities"]:
+        for n, v in c.get("by_persona", {}).items():
+            if n not in best or v > best[n][1]:
+                best[n] = (c["city"], v)
+    if best:
+        lines += ["", "**Best city per persona:** " + "; ".join(f"{n}: {c} ({v:.1f})" for n, (c, v) in best.items())]
     lines += ["", "## Personas"]
     for r in run["personas"]:
         p, rx, ad = r["persona"], r["reaction"], r["ad"]

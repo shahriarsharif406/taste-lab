@@ -36,6 +36,10 @@ def test_demo_pipeline_end_to_end():
     assert run["mode"] == "demo" and run["llm"] == "offline-fallback"
     assert len(run["personas"]) == 3
     assert [c["score"] for c in run["cities"]] == sorted((c["score"] for c in run["cities"]), reverse=True)
+    for c in run["cities"]:
+        assert set(c["by_persona"]) == {r["persona"]["name"] for r in run["personas"]}
+        assert isinstance(c["vs_avg"], float)
+    assert abs(sum(c["vs_avg"] for c in run["cities"])) < 0.5
     for r in run["personas"]:
         assert 1 <= r["reaction"]["score"] <= 10
         assert r["ad"]["headline"]
