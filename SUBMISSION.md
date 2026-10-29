@@ -15,7 +15,10 @@ Qloo-grounded buyer personas, a synthetic focus group, best-fit cities and ad co
 2. ground each persona in Qloo: `/search` resolves the seeds, `/v2/insights` returns what each taste cluster loves across domains (its *taste signature*);
 3. run a synthetic focus group where every persona reacts using only its Qloo signature, with purchase intent, loves and concerns, plus a moderator synthesis;
 4. rank US/EU cities (Austin, Berlin, Amsterdam, ...) with Qloo place insights filtered by location;
-5. write persona-specific ad copy whose hook names the Qloo signal behind it.
+5. write persona-specific ad copy whose hook names the Qloo signal behind it;
+6. **Collab radar:** for each persona's best city, Qloo returns the partner brand, artist and venue that audience loves, and the agent proposes one concrete collaboration or event;
+7. **Taste gap:** the owner names up to 3 brands they want to be compared with; Qloo shows what those brands' audience loves that none of the personas do, and which persona sits closest;
+8. **30-day plan** built from the personas, cities and partners, with evidence ids, and a **What if** test that re-runs the focus group on the same Qloo data after a price or positioning change.
 
 Every insight carries an evidence id linking to the exact Qloo entity, affinity score and query. The app shows every Qloo call it made. Reports export as printable HTML (PDF) and Markdown.
 

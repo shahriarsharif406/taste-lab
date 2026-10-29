@@ -17,7 +17,10 @@ Small online brands selling into the US and EU cannot afford focus groups or age
 5. **City Fit Score:** `GET /v2/insights` with `filter.type=urn:entity:place` and `filter.location.query=<city>` for Austin, Berlin, Amsterdam, etc. Cities are ranked by mean affinity of the places returned.
 6. **Persona-specific ad copy:** headline, body, CTA and *why this hook*, tied to a named Qloo signal.
 7. **Transparency:** every claim carries an evidence id (`Q7`) that maps to a Qloo entity, affinity score and the query that fetched it. The UI also lists every Qloo call (endpoint, params, status, latency).
-8. **Export:** printable HTML report (save as PDF) and Markdown.
+8. **Collab radar:** per persona and best city, `GET /v2/insights` for place, plus the brand and artist signatures, give a partner brand, artist and venue; the agent writes one concrete collaboration idea.
+9. **Anchor brands and taste gap:** up to 3 brands the owner wants to be compared with are resolved in Qloo; their audience's taste is compared with each persona's (closest persona, shared taste, taste gap).
+10. **30-day plan and What if:** an evidence-cited launch plan, and a re-run of the focus group with a changed price or positioning, reusing the stored Qloo data.
+11. **Export:** printable HTML report (save as PDF), Markdown, and CSV of ad copy.
 
 **Why Qloo matters here:** persona taste signatures, city rankings and ad hooks all come from Qloo affinity data. Remove Qloo and the app has nothing to ground on.
 
