@@ -92,6 +92,9 @@ if run:
             msg = ("Gemini key not set: persona reactions, scores and ad copy use generic templates. "
                    "The Qloo data (signals, cities, evidence) is real.")
         st.markdown(ui.note(msg, "warn"), unsafe_allow_html=True)
+    if run["llm"] == "gemini" and run["warnings"]:
+        st.markdown(ui.note("Gemini was slow or busy for some steps, so those parts use generic text. "
+                            "Run again for fully generated copy.", "warn"), unsafe_allow_html=True)
     for w in run["warnings"][:3]:
         st.caption(f"Note: {w}")
     st.markdown(ui.verdict(run["synthesis"]), unsafe_allow_html=True)

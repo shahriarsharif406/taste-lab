@@ -21,7 +21,7 @@ _GOOD_MODEL: dict[str, str] = {}  # remembers the model that last worked, across
 class LLM:
     api_key: str | None = None
     model: str = config.DEFAULT_GEMINI_MODEL
-    timeout: float = 45.0
+    timeout: float = 75.0
     session: Any = None
     warnings: list[str] = field(default_factory=list)
     fast_thinking: bool = True
@@ -56,7 +56,7 @@ class LLM:
 
         def key(n: str):
             nums = re.findall(r"\d+(?:\.\d+)?", n)
-            return ("lite" not in n, "preview" not in n and "exp" not in n, float(nums[0]) if nums else 0, n)
+            return ("lite" in n, "preview" not in n and "exp" not in n, float(nums[0]) if nums else 0, n)
         self._cands = sorted(set(names), key=key, reverse=True)
         return self._cands
 
@@ -104,8 +104,8 @@ class LLM:
                     return parse_json_loose(text)
                 except (requests.RequestException, KeyError, IndexError, ValueError) as exc:
                     last = f"{model} {type(exc).__name__}"
-                    if isinstance(exc, requests.Timeout):
-                        break
+                    if isinstance(exc, requests.Timeout) and attempt >= 1:
+                        break  # timed out twice: give up on this model
         self.warnings.append(f"Gemini failed ({last}); used offline fallback")
         return None
 
