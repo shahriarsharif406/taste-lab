@@ -32,6 +32,7 @@ class Brief:
     market: str = "US + EU"
     cities: list[str] = field(default_factory=lambda: list(config.DEFAULT_CITIES))
     num_personas: int = 4
+    anchors: list[str] = field(default_factory=list)
 
 
 class Evidence:
@@ -90,6 +91,7 @@ Product: {brief.product_name}
 Description: {brief.description}
 Target audience hint: {brief.audience or 'not specified'}
 Price point: {brief.price_point or 'not specified'}
+Brands the owner wants to be compared with: {', '.join(brief.anchors) or 'none given'}
 
 Return JSON: {{"personas": [{{"name": str, "tagline": str, "seeds": [{{"name": str, "type": "artist"|"brand"|"movie"}}]}}]}}
 Create {brief.num_personas} genuinely different personas: different life stages, motivations, budgets and attitudes to this kind of product (include at least one sceptical or price-sensitive buyer, and not only the obvious target customer). Each has 3 seeds: real, well-known artists, brands or
@@ -267,6 +269,158 @@ The hook must reference a taste signal by name and cite its evidence id. No fake
     }
 
 
+# --------------------------------------------------------------------------- anchors + taste gap
+def resolve_anchors(client: QlooClient, ev: Evidence, names: list[str]) -> list[tuple[Entity, str]]:
+    """Look up the brands the owner wants to be compared with (max 3). Failures are skipped."""
+    out: list[tuple[Entity, str]] = []
+    for n in names[:3]:
+        try:
+            hits = client.search(n, "brand", take=1)
+        except QlooError:
+            continue
+        if hits:
+            out.append((hits[0], ev.add(hits[0], "search", "anchor brand")))
+    return out
+
+
+def taste_gap(client: QlooClient, ev: Evidence, anchors: list[tuple[Entity, str]],
+              results: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Compare what the anchor brands' audience loves with what our personas love."""
+    if not anchors:
+        return None
+    ids = [a.id for a, _ in anchors]
+    rows: list[dict[str, Any]] = []
+    for t in SIGNATURE_TYPES:
+        try:
+            ents = client.insights(t, ids, take=8)
+        except QlooError:
+            ents = []
+        for ent in ents:
+            rows.append({"name": ent.name, "type": t, "affinity": ent.affinity,
+                         "evidence": ev.add(ent, "insights", f"{t} affinity for anchor brands")})
+
+    def names(r: dict[str, Any]) -> set[str]:
+        return {x["name"].lower() for rs in r["signature"]["signature"].values() for x in rs}
+
+    persona_names = {r["persona"]["name"]: names(r) for r in results}
+    everyone = set().union(*persona_names.values()) if persona_names else set()
+    shared = [x for x in rows if x["name"].lower() in everyone]
+    missing = sorted((x for x in rows if x["name"].lower() not in everyone),
+                     key=lambda x: x["affinity"] or 0, reverse=True)[:6]
+    match = {n: round(100 * sum(1 for x in rows if x["name"].lower() in ns) / len(rows)) if rows else 0
+             for n, ns in persona_names.items()}
+    return {"anchors": [{"name": a.name, "evidence": i} for a, i in anchors],
+            "shared": shared[:8], "missing": missing, "match": match}
+
+
+# --------------------------------------------------------------------------- collab radar
+def radar_base(client: QlooClient, ev: Evidence, brief: Brief, results: list[dict[str, Any]],
+               cities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """For every persona: the best partner brand, artist and venue (all straight from Qloo)."""
+    out = []
+    for r in results:
+        name = r["persona"]["name"]
+        sig = r["signature"]["signature"]
+        city = max(cities, key=lambda c: c["by_persona"].get(name, 0))["city"] if cities else None
+        places = _places(client, r["signature"]["seed_ids"], city)[:3] if city else []
+        venues = [{"name": p.name, "affinity": p.affinity,
+                   "evidence": ev.add(p, "insights", f"place affinity in {city}")} for p in places]
+        brands = [x for x in sig.get("brand", []) if x["name"].lower() != brief.product_name.lower()]
+        out.append({"persona": name, "city": city, "brand": brands[0] if brands else None,
+                    "artist": (sig.get("artist") or [None])[0], "venue": venues[0] if venues else None,
+                    "venues": venues})
+    return out
+
+
+def radar_idea(brief: Brief, row: dict[str, Any], llm: LLM) -> dict[str, Any]:
+    parts = {k: row[k] for k in ("brand", "artist", "venue") if row.get(k)}
+    allowed = {v["evidence"] for v in parts.values()}
+    desc = "; ".join(f"{k}: {v['name']} [{v['evidence']}]" for k, v in parts.items())
+    data = llm.json(
+        f"""Product: {brief.product_name} - {brief.description}
+Audience: {row['persona']}. Best city: {row['city']}.
+Qloo says this audience's taste points to: {desc}
+Return JSON: {{"idea": str (max 40 words: one concrete collaboration or event idea using these partners),
+"evidence": [str]}}. Use only the partners listed; do not invent facts about them.""",
+        system="You are a brand partnerships strategist. Output JSON only.") if parts else None
+    if isinstance(data, dict) and data.get("idea"):
+        return {"idea": str(data["idea"]), "evidence": _ids(data.get("evidence"), allowed) or sorted(allowed)}
+    bits = []
+    if row.get("brand"):
+        bits.append(f"a limited drop with {row['brand']['name']}")
+    if row.get("artist"):
+        bits.append(f"a listening night curated around {row['artist']['name']}")
+    where = f" at {row['venue']['name']}" if row.get("venue") else ""
+    city = f" in {row['city']}" if row.get("city") else ""
+    idea = ("Try " + " and ".join(bits) + where + city + ".") if bits else "No partner signals were returned."
+    return {"idea": idea, "evidence": sorted(allowed)}
+
+
+# --------------------------------------------------------------------------- launch playbook
+def playbook(brief: Brief, results: list[dict[str, Any]], radar: list[dict[str, Any]],
+             allowed: set[str], llm: LLM) -> list[dict[str, Any]]:
+    ranked = sorted(results, key=lambda r: r["reaction"]["score"], reverse=True)
+    top, weak = ranked[0], ranked[-1]
+    by_name = {x["persona"]: x for x in radar}
+    ctx = []
+    for r in ranked:
+        x = by_name.get(r["persona"]["name"], {})
+        ctx.append(f"- {r['persona']['name']} (intent {r['reaction']['score']}/10, concerns: "
+                   f"{'; '.join(r['reaction']['concerns'][:2])}); best city {x.get('city')}; "
+                   f"ad hook: {r['ad']['headline']}; partners: "
+                   + ", ".join(f"{x[k]['name']} [{x[k]['evidence']}]" for k in ("brand", "artist", "venue") if x.get(k)))
+    data = llm.json(
+        f"""Plan the first 30 days of launching {brief.product_name} ({brief.price_point or 'price n/a'}) for a small brand.
+{chr(10).join(ctx)}
+Return JSON: {{"steps": [{{"when": str, "action": str (max 30 words, concrete), "evidence": [str]}}]}} with exactly 4 steps
+(Week 1..Week 4). Lead with the strongest persona, test the partners above, and use week 4 to address the weakest persona's biggest
+concern and re-measure. Cite evidence ids like Q12 for taste-based choices. No invented numbers.""",
+        system="You are a pragmatic go-to-market strategist. Output JSON only.")
+    steps: list[dict[str, Any]] = []
+    if isinstance(data, dict):
+        for st in _as_list(data.get("steps")):
+            if isinstance(st, dict) and st.get("action"):
+                steps.append({"when": str(st.get("when", f"Week {len(steps) + 1}")), "action": str(st["action"]),
+                              "evidence": _ids(st.get("evidence"), allowed)})
+    if len(steps) >= 3:
+        return steps[:4]
+    tx, wx = by_name.get(top["persona"]["name"], {}), by_name.get(weak["persona"]["name"], {})
+    c1 = (tx.get("city") or "your best city")
+    ref = [x["evidence"] for x in (tx.get("brand"), tx.get("artist")) if x]
+    steps = [
+        {"when": "Week 1", "action": f"Run \"{top['ad']['headline']}\" to {top['persona']['name']} in {c1}.",
+         "evidence": top["ad"]["evidence"]},
+        {"when": "Week 2", "action": "Approach the suggested partner brand with a small co-branded drop"
+         + (f" ({tx['brand']['name']})." if tx.get("brand") else "."),
+         "evidence": [tx["brand"]["evidence"]] if tx.get("brand") else ref},
+        {"when": "Week 3", "action": "Host one small event" + (f" at {tx['venue']['name']}." if tx.get("venue") else "."),
+         "evidence": [tx["venue"]["evidence"]] if tx.get("venue") else []},
+        {"when": "Week 4", "action": f"Address '{(weak['reaction']['concerns'] or ['their main concern'])[0]}' for "
+         f"{weak['persona']['name']}, then compare results by persona.", "evidence": weak["reaction"]["evidence"][:2]},
+    ]
+    return steps
+
+
+# --------------------------------------------------------------------------- what-if
+def what_if(run: dict[str, Any], llm: LLM, price: str = "", positioning: str = "", name: str = "") -> list[dict[str, Any]]:
+    """Re-run the focus group with one change; reuses the stored Qloo signatures (no new Qloo calls)."""
+    from concurrent.futures import ThreadPoolExecutor
+    from dataclasses import replace
+
+    base = Brief(**run["brief"])
+    new = replace(base, price_point=price.strip() or base.price_point,
+                  product_name=name.strip() or base.product_name,
+                  description=(base.description + " Positioning: " + positioning.strip()) if positioning.strip()
+                  else base.description)
+    if llm.available:
+        llm.candidates()
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        after = list(pool.map(lambda r: react(new, r["persona"], r["signature"], llm), run["personas"]))
+    return [{"persona": r["persona"]["name"], "before": r["reaction"]["score"], "after": a["score"],
+             "delta": a["score"] - r["reaction"]["score"], "reaction": a["reaction"], "concerns": a["concerns"]}
+            for r, a in zip(run["personas"], after)]
+
+
 # --------------------------------------------------------------------------- orchestrator
 def run_taste_lab(brief: Brief, client: QlooClient, llm: LLM, progress=None) -> dict[str, Any]:
     def tick(msg: str) -> None:
@@ -274,6 +428,7 @@ def run_taste_lab(brief: Brief, client: QlooClient, llm: LLM, progress=None) -> 
             progress(msg)
 
     ev = Evidence()
+    anchors = resolve_anchors(client, ev, brief.anchors) if brief.anchors else []
     tick("Designing personas")
     personas = plan_personas(brief, llm)
 
@@ -304,6 +459,16 @@ def run_taste_lab(brief: Brief, client: QlooClient, llm: LLM, progress=None) -> 
             r["ad"] = f.result()
         synthesis = syn_fut.result()
 
+        tick("Finding collaboration partners and the taste gap")
+        radar = radar_base(client, ev, brief, results, cities)
+        idea_futs = [pool.submit(radar_idea, brief, row, llm) for row in radar]
+        allowed = set(ev.items)
+        pb_fut = pool.submit(playbook, brief, results, radar, allowed, llm)
+        gap = taste_gap(client, ev, anchors, results)
+        for row, f in zip(radar, idea_futs):
+            row.update(f.result())
+        plan = pb_fut.result()
+
     return {
         "brief": brief.__dict__,
         "mode": client.mode,
@@ -311,6 +476,9 @@ def run_taste_lab(brief: Brief, client: QlooClient, llm: LLM, progress=None) -> 
         "personas": results,
         "synthesis": synthesis,
         "cities": cities,
+        "radar": radar,
+        "gap": gap,
+        "playbook": plan,
         "evidence": ev.items,
         "trace": client.trace,
         "warnings": list(llm.warnings),

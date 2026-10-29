@@ -146,3 +146,28 @@ def test_csv_export_neutralises_formulas():
     run["personas"][0]["ad"]["headline"] = "=HYPERLINK(\"http://x\")"
     out = to_csv(run)
     assert out.splitlines()[0].startswith("persona,") and "'=HYPERLINK" in out
+
+
+def test_radar_gap_playbook_and_whatif():
+    from tastelab.agents import what_if
+
+    b = brief()
+    b.anchors = ["Patagonia", "Peak Design"]
+    run = run_taste_lab(b, QlooClient(api_key=None), LLM(api_key=None))
+    assert len(run["radar"]) == len(run["personas"])
+    assert all(x.get("idea") for x in run["radar"])
+    assert run["gap"] and run["gap"]["anchors"] and set(run["gap"]["match"]) == {r["persona"]["name"] for r in run["personas"]}
+    assert len(run["playbook"]) == 4
+    ids = set(run["evidence"])
+    for x in run["radar"]:
+        assert set(x["evidence"]) <= ids
+    for s in run["playbook"]:
+        assert set(s["evidence"]) <= ids
+    rows = what_if(run, LLM(api_key=None), price="USD 49")
+    assert len(rows) == len(run["personas"]) and all("delta" in r for r in rows)
+    assert "Collaboration radar" in to_markdown(run) and "30 days" in to_html(run)
+
+
+def test_no_anchors_means_no_gap():
+    run = run_taste_lab(brief(), QlooClient(api_key=None), LLM(api_key=None))
+    assert run["gap"] is None and run["radar"]

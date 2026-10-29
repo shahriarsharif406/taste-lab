@@ -37,7 +37,20 @@ def to_markdown(run: dict[str, Any]) -> str:
                   f"- Evidence: {_ev_list(rx['evidence'])}", "",
                   f"**Ad:** {ad['headline']}", f"{ad['body']}", f"*CTA: {ad['cta']}*",
                   f"Why this hook: {ad['hook_reason']} (evidence: {_ev_list(ad['evidence'])})", ""]
-    lines += ["## Evidence (Qloo results behind each insight)", "",
+    if run.get("radar"):
+        lines += ["", "## Collaboration radar"]
+        for x in run["radar"]:
+            partners = ", ".join(f"{x[k]['name']} [{x[k]['evidence']}]" for k in ("brand", "artist", "venue") if x.get(k))
+            lines.append(f"- **{x['persona']}** ({x.get('city') or 'n/a'}): {x.get('idea', '')} Partners: {partners or '-'}")
+    g = run.get("gap")
+    if g:
+        lines += ["", "## Taste gap vs anchor brands",
+                  "Anchors: " + ", ".join(a["name"] for a in g["anchors"]),
+                  "Gap: " + ", ".join(f"{x['name']} [{x['evidence']}]" for x in g["missing"])]
+    if run.get("playbook"):
+        lines += ["", "## First 30 days (a hypothesis to test)"]
+        lines += [f"- **{s['when']}:** {s['action']} ({_ev_list(s.get('evidence', []))})" for s in run["playbook"]]
+    lines += ["", "## Evidence (Qloo results behind each insight)", "",
               "| ID | Entity | Type | Affinity | Why it was fetched |", "|---|---|---|---|---|"]
     for e in run["evidence"].values():
         aff = "" if e["affinity"] is None else f"{e['affinity']:.2f}"
@@ -68,6 +81,13 @@ def to_html(run: dict[str, Any]) -> str:
             f"<b>Evidence:</b> {esc(_ev_list(rx['evidence']))}</p>"
             f"<p><b>Ad:</b> {esc(ad['headline'])}<br>{esc(ad['body'])}<br><i>CTA: {esc(ad['cta'])}</i><br>"
             f"<small>Why: {esc(ad['hook_reason'])} ({esc(_ev_list(ad['evidence']))})</small></p></div>")
+    if run.get("radar"):
+        parts.append("<h2>Collaboration radar</h2><ul>" + "".join(
+            f"<li><b>{esc(x['persona'])}</b> ({esc(str(x.get('city') or 'n/a'))}): {esc(x.get('idea', ''))}</li>" for x in run["radar"]) + "</ul>")
+    if run.get("playbook"):
+        parts.append("<h2>First 30 days (a hypothesis to test)</h2><ol>" + "".join(
+            f"<li><b>{esc(s['when'])}:</b> {esc(s['action'])} <small>({esc(_ev_list(s.get('evidence', [])))})</small></li>"
+            for s in run["playbook"]) + "</ol>")
     parts.append("<h2>Evidence</h2><table><tr><th>ID</th><th>Entity</th><th>Type</th><th>Affinity</th><th>Context</th></tr>")
     for e in run["evidence"].values():
         aff = "" if e["affinity"] is None else f"{e['affinity']:.2f}"

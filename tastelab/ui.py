@@ -270,6 +270,28 @@ button[role="tab"],button[role="tab"] *{font-family:var(--serif)!important;font-
 .tl-step b{display:block;font-family:var(--serif);font-style:italic;font-weight:500;font-size:1.35rem;line-height:1.1}
 .tl-step span{display:block;margin-top:.25rem;font-size:.88rem;color:var(--mute);line-height:1.35}
 @media (max-width:820px){.tl-steps{grid-template-columns:1fr 1fr}.tl-step:nth-child(3){border-left:0;padding-left:0}}
+
+/* ---- v8: radar, gap, plan, what-if ---- */
+.tl-radars{display:grid;grid-template-columns:repeat(2,1fr);gap:1.2rem}
+.tl-radar{background:#fff;box-shadow:0 0 0 1px var(--line);padding:1.3rem 1.4rem}
+.tl-radar-for{font-family:var(--serif);font-style:italic;font-size:1.6rem;line-height:1.1;margin-bottom:.8rem}
+.tl-slots{display:grid;gap:.5rem;margin-bottom:.8rem}
+.tl-slot .lab{display:block;font-size:.8rem;color:var(--mute)}
+.tl-slot b{font-weight:600;margin-right:.4rem}
+.tl-idea{font-family:var(--serif);font-size:1.15rem;line-height:1.4;margin:.4rem 0 .6rem}
+.tl-gap h4{margin:1.2rem 0 .5rem}
+.tl-match .tl-track:before,.tl-match .tl-track:after{display:none}
+.tl-match{display:grid;grid-template-columns:minmax(150px,260px) 1fr 50px;gap:.8rem;align-items:center;margin:.35rem 0}
+.tl-plan{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--ink)}
+.tl-step2{padding:1rem 1.1rem 1rem 0;margin-right:1.1rem;border-right:1px solid var(--line)}
+.tl-step2:last-child{border-right:0}
+.tl-step2 b{font-family:var(--serif);font-style:italic;font-weight:500;font-size:1.6rem}
+.tl-step2 p{font-size:.98rem;line-height:1.45;margin:.4rem 0 .6rem}
+.tl-wi{background:#fff;box-shadow:0 0 0 1px var(--line);padding:1rem 1.3rem;margin-bottom:.8rem;display:grid;grid-template-columns:minmax(200px,280px) 160px 1fr;gap:.4rem 1.2rem;align-items:center}
+.tl-wi-n{font-family:var(--serif);font-style:italic;font-size:1.35rem}
+.tl-wi-s{font-family:var(--serif);font-size:1.5rem}.tl-wi-s i{font-size:.9rem;color:var(--mute)}
+.tl-wi p{margin:0;font-size:.95rem;line-height:1.45}
+@media (max-width:820px){.tl-radars,.tl-plan{grid-template-columns:1fr}.tl-wi{grid-template-columns:1fr}.tl-step2{border-right:0;border-bottom:1px solid var(--line)}}
 """
 
 e = html.escape
@@ -405,6 +427,60 @@ def best_city(rows: list[dict[str, Any]], colors: dict[str, str]) -> str:
         f'<span style="background:{colors.get(n, "#1A1A1A")};color:{text_on(colors.get(n, "#1A1A1A"))}">'
         f'{e(n)}<b>{e(c)}</b></span>' for n, (c, _) in best.items())
     return f'<div class="tl-best">{chips}</div>' if chips else ""
+
+
+def _ev(ids: list[str]) -> str:
+    return "".join(f'<span class="tl-chip" style="padding:0 .4rem">{e(i)}</span> ' for i in ids)
+
+
+def radar(rows: list[dict[str, Any]], colors: dict[str, str]) -> str:
+    out = []
+    for x in rows:
+        c = colors.get(x["persona"], "#1A1A1A")
+        slots = "".join(
+            f'<div class="tl-slot"><span class="lab">{lab}</span><b>{e(x[k]["name"])}</b>{_ev([x[k]["evidence"]])}</div>'
+            for lab, k in (("Partner brand", "brand"), ("Artist", "artist"), ("Venue", "venue")) if x.get(k))
+        city = f' in {e(x["city"])}' if x.get("city") else ""
+        out.append(
+            f'<div class="tl-radar" style="border-top:6px solid {c}"><div class="tl-radar-for">{e(x["persona"])}{city}</div>'
+            f'<div class="tl-slots">{slots or "No partner signals returned."}</div>'
+            f'<p class="tl-idea">{e(x.get("idea", ""))}</p><div>{_ev(x.get("evidence", []))}</div></div>')
+    return '<div class="tl-radars">' + "".join(out) + "</div>"
+
+
+def gap(g: dict[str, Any], colors: dict[str, str]) -> str:
+    anchors = ", ".join(f'{e(a["name"])} {_ev([a["evidence"]])}' for a in g["anchors"])
+
+    def chips(rows: list[dict[str, Any]]) -> str:
+        return "".join(f'<span class="tl-chip">{e(r["name"])}<i>{e(r["evidence"])}</i></span>' for r in rows) or "<i>none</i>"
+
+    bars = "".join(
+        f'<div class="tl-match"><span>{e(n)}</span><div class="tl-track"><div class="tl-bar" style="left:0;width:{v}%;background:{colors.get(n, "#1A1A1A")}"></div></div><b>{v}%</b></div>'
+        for n, v in sorted(g["match"].items(), key=lambda kv: kv[1], reverse=True))
+    return (f'<div class="tl-gap"><p>Anchor brands: {anchors}. Qloo shows what their audience loves, then we compare it with each persona.</p>'
+            f'<h4>Which persona is closest to the anchor audience</h4>{bars}'
+            f'<h4>Shared taste (you already speak to this)</h4><div class="tl-chips">{chips(g["shared"])}</div>'
+            f'<h4>Taste gap (their audience loves it, none of your personas do)</h4><div class="tl-chips">{chips(g["missing"])}</div></div>')
+
+
+def plan(steps: list[dict[str, Any]]) -> str:
+    items = "".join(
+        f'<div class="tl-step2"><b>{e(s["when"])}</b><p>{e(s["action"])}</p><div>{_ev(s.get("evidence", []))}</div></div>'
+        for s in steps)
+    return f'<div class="tl-plan">{items}</div>'
+
+
+def whatif(rows: list[dict[str, Any]], colors: dict[str, str]) -> str:
+    out = []
+    for x in rows:
+        d = x["delta"]
+        sign = f"+{d}" if d > 0 else str(d)
+        tone = "#2F5D50" if d > 0 else ("#8A2B2B" if d < 0 else "#6b6b66")
+        out.append(f'<div class="tl-wi" style="border-left:6px solid {colors.get(x["persona"], "#1A1A1A")}">'
+                   f'<div class="tl-wi-n">{e(x["persona"])}</div>'
+                   f'<div class="tl-wi-s">{x["before"]} <i>to</i> {x["after"]} <b style="color:{tone}">{sign}</b></div>'
+                   f'<p>{e(x["reaction"])}</p></div>')
+    return "".join(out)
 
 
 def ad(r: dict[str, Any], color: str) -> str:
