@@ -88,6 +88,70 @@ button[data-testid="stBaseButton-primary"]:hover{background:#000}
 @media (max-width:820px){.tl-hero{grid-template-columns:1fr}.tl-strip{height:110px}.tl-city{grid-template-columns:1fr 90px}.tl-track{grid-column:1 / 3}.tl-places{grid-column:1 / 3}.tl-cols{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:no-preference){.tl-strip div{animation:tl-rise .9s cubic-bezier(.2,.7,.2,1) both}.tl-strip div:nth-child(2){animation-delay:.07s}.tl-strip div:nth-child(3){animation-delay:.14s}.tl-strip div:nth-child(4){animation-delay:.21s}.tl-strip div:nth-child(5){animation-delay:.28s}}
 @keyframes tl-rise{from{transform:scaleY(.15);transform-origin:bottom}to{transform:scaleY(1);transform-origin:bottom}}
+
+[data-testid="stSidebar"] [data-baseweb="base-input"],[data-testid="stSidebar"] [data-baseweb="input"],[data-testid="stSidebar"] [data-baseweb="input"]>div,[data-testid="stSidebar"] [data-baseweb="textarea"],[data-testid="stSidebar"] [data-baseweb="textarea"]>div,[data-testid="stSidebar"] [data-baseweb="select"]>div,[data-testid="stSidebar"] [data-baseweb="select"] div{background:transparent!important;background-color:transparent!important}
+[data-testid="stSidebar"] [data-baseweb="select"] div,[data-testid="stSidebar"] [data-baseweb="select"] span{color:#fff!important}
+[data-testid="stSidebar"] [data-testid="stTextInput"] div,[data-testid="stSidebar"] [data-testid="stTextArea"] div,[data-testid="stSidebar"] [data-testid="stSelectbox"] div{background:transparent!important;background-color:transparent!important;border-radius:0!important}
+[data-testid="stSidebar"] [data-testid="stSelectbox"] div{color:#fff!important}
+.stTabs [data-baseweb="tab"] p{font-family:var(--serif)!important;font-style:italic;font-size:1.5rem!important;font-weight:500}
+[data-testid="stSidebar"] input::placeholder{color:#8d8d86!important;opacity:1}
+/* ---- v2: runway cover, black wardrobe sidebar, ticker ---- */
+.block-container{padding-top:1rem;max-width:1320px}
+[data-testid="stSidebar"]{background:#141414;border-right:0}
+[data-testid="stSidebar"] *{color:#F3F3F1}
+[data-testid="stSidebar"] h2{font-family:var(--serif)!important;font-style:italic;font-size:2rem;font-weight:500;color:#fff}
+[data-testid="stSidebar"] label p{font-weight:500;font-size:.88rem;color:#BDBDB6}
+[data-testid="stSidebar"] input,[data-testid="stSidebar"] textarea{background:transparent!important;color:#fff!important;border:0!important;border-bottom:1px solid #6b6b66!important;border-radius:0!important;padding-left:0!important}
+[data-testid="stSidebar"] [data-baseweb="select"]>div{background:transparent!important;border:0!important;border-bottom:1px solid #6b6b66!important;border-radius:0!important}
+[data-testid="stSidebar"] [data-baseweb="input"],[data-testid="stSidebar"] [data-baseweb="textarea"]{background:transparent!important;border:0!important}
+[data-testid="stSidebar"] .stButton>button{border:1px solid #F3F3F1;color:#F3F3F1;background:transparent}
+[data-testid="stSidebar"] .stButton>button:hover{background:#F3F3F1;color:#141414}
+[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"]{background:#F3F3F1;color:#141414;font-size:1.05rem;padding:.8rem 1rem}
+[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] *{color:#141414}
+[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"]:hover{background:#E7B7C8}
+
+.tl-cover{position:relative;display:flex;height:clamp(250px,31vw,400px);overflow:hidden}
+.tl-cover .band{height:100%;transform-origin:bottom}
+.tl-mast{position:absolute;left:2.2%;bottom:-.06em;font-family:var(--serif);font-style:italic;font-weight:500;font-size:clamp(4.4rem,15vw,13rem);line-height:.9;letter-spacing:-.045em;color:#fff;mix-blend-mode:difference;pointer-events:none;white-space:nowrap}
+.tl-subline{display:flex;justify-content:space-between;align-items:baseline;gap:2rem;flex-wrap:wrap;padding:1rem 0 1.4rem;border-bottom:2px solid var(--ink);margin-bottom:1.2rem}
+.tl-subline p{margin:0;font-family:var(--serif);font-style:italic;font-size:clamp(1.3rem,2.4vw,2rem);line-height:1.2;max-width:30ch}
+.tl-subline small{font-size:.9rem;color:var(--mute);max-width:34ch}
+
+.tl-ticker{background:#141414;color:#F3F3F1;overflow:hidden;white-space:nowrap;margin:.2rem 0 1.4rem;padding:.8rem 0}
+.tl-ticker-in{display:inline-block;animation:tl-slide 70s linear infinite}
+.tl-ticker:hover .tl-ticker-in{animation-play-state:paused}
+.tl-ticker span{font-family:var(--serif);font-style:italic;font-size:1.5rem;margin:0 .9rem}
+.tl-ticker i{display:inline-block;width:.55rem;height:.55rem;margin:0 .6rem .12rem}
+@keyframes tl-slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+.tl-verdict{position:relative;padding-left:5.5rem;margin:1rem 0 1.8rem}
+.tl-verdict:before{content:"\\201C";position:absolute;left:0;top:-.6rem;font-family:var(--serif);font-size:9rem;line-height:1;color:#7B1E3A}
+.tl-verdict p{font-style:italic;font-size:clamp(1.4rem,2.2vw,1.95rem);max-width:56ch}
+.tl-verdict h3{font-family:'Instrument Sans',sans-serif!important;font-size:.95rem;color:var(--mute);font-weight:600;margin:0 0 .4rem}
+
+.stTabs [data-baseweb="tab"]{font-family:var(--serif);font-style:italic;font-size:1.45rem;font-weight:500;padding:.6rem 0 .8rem}
+.stTabs [data-baseweb="tab-list"]{gap:2.4rem;margin-bottom:.6rem}
+
+.tl-plate{border:0;background:#fff;box-shadow:0 0 0 1px var(--line)}
+.tl-plate-top{position:relative;min-height:300px;padding:1.6rem 1.7rem}
+.tl-plate-top:after,.tl-ad:after{content:"";position:absolute;inset:12px;border:1px solid currentColor;opacity:.38;pointer-events:none}
+.tl-score{font-size:clamp(6.5rem,10vw,9rem);font-weight:400}
+.tl-score small{font-size:1.2rem;font-style:italic}
+.tl-pname{font-size:2.2rem;line-height:1.02;font-style:italic;font-weight:500}
+.tl-tag{font-size:1rem;font-style:normal}
+
+.tl-city{grid-template-columns:minmax(220px,300px) 1fr 120px;padding:1.3rem 0}
+.tl-city-name{font-size:clamp(2.2rem,4vw,3.6rem);font-style:italic;line-height:1}
+.tl-track{height:22px}
+.tl-city-score{font-family:var(--serif);font-size:2rem;font-weight:500}
+.tl-best span{padding:.7rem 1.1rem;font-size:.95rem}
+.tl-best b{font-size:1.5rem;font-style:italic;font-weight:500;margin-left:.6rem}
+.tl-ad{position:relative;min-height:380px;padding:2rem 2rem 1.7rem}
+.tl-ad h3{font-size:clamp(2.4rem,4vw,3.3rem);font-style:italic;font-weight:500;line-height:1}
+.tl-ad p{font-size:1.08rem}
+@media (max-width:820px){.tl-city{grid-template-columns:1fr 90px}.tl-verdict{padding-left:0}.tl-verdict:before{display:none}.tl-cover{height:220px}}
+@media (prefers-reduced-motion:no-preference){.tl-cover .band{animation:tl-rise 1s cubic-bezier(.2,.7,.2,1) both}.tl-cover .band:nth-child(2){animation-delay:.08s}.tl-cover .band:nth-child(3){animation-delay:.16s}.tl-cover .band:nth-child(4){animation-delay:.24s}.tl-cover .band:nth-child(5){animation-delay:.32s}}
+@media (prefers-reduced-motion:reduce){.tl-ticker-in{animation:none}}
 """
 
 e = html.escape
@@ -111,15 +175,19 @@ def style_tag() -> str:
 
 
 def hero() -> str:
-    heights = [100, 84, 93, 76, 88]
-    strip = "".join(f'<div style="background:{c};height:{h}%"></div>' for c, h in zip(PALETTE, heights))
-    return (
-        '<div class="tl-hero"><div>'
-        '<div class="tl-title">Taste Lab</div>'
-        '<p class="tl-sub">Know who will love your product, in which city, and what to say to them.</p>'
-        f'</div><div><div class="tl-strip">{strip}</div>'
-        '<div class="tl-strip-cap">Every buyer persona is built from Qloo taste data.</div></div></div>'
-    )
+    flex = [3, 2, 4, 1.4, 2.4]
+    bands = "".join(f'<div class="band" style="flex:{f};background:{c}"></div>' for c, f in zip(PALETTE, flex))
+    return (f'<div class="tl-cover">{bands}<div class="tl-mast">Taste Lab</div></div>'
+            '<div class="tl-subline"><p>Know who will love it, where they live, and what to say to them.</p>'
+            '<small>Buyer personas built from Qloo taste data, tested by a synthetic focus group.</small></div>')
+
+
+def ticker(names: list[str]) -> str:
+    uniq = list(dict.fromkeys(n for n in names if n))[:28]
+    if len(uniq) < 4:
+        return ""
+    one = "".join(f'<span>{e(n)}</span><i style="background:{PALETTE[k % len(PALETTE)]}"></i>' for k, n in enumerate(uniq))
+    return f'<div class="tl-ticker" aria-label="Qloo taste signals found in this run"><div class="tl-ticker-in">{one}{one}</div></div>'
 
 
 def note(text: str, kind: str = "") -> str:

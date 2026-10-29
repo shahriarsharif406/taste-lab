@@ -97,6 +97,7 @@ if run:
                             "Run again for fully generated copy.", "warn"), unsafe_allow_html=True)
     for w in run["warnings"][:3]:
         st.caption(f"Note: {w}")
+    st.markdown(ui.ticker([v["entity"] for v in run["evidence"].values()]), unsafe_allow_html=True)
     st.markdown(ui.verdict(run["synthesis"]), unsafe_allow_html=True)
 
     t1, t2, t3, t4 = st.tabs(["Personas", "City fit", "Ad copy", "Qloo evidence"])
