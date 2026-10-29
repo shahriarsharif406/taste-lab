@@ -6,7 +6,7 @@ import os
 
 import streamlit as st
 
-from tastelab import config
+from tastelab import config, ui
 from tastelab.agents import Brief, run_taste_lab
 from tastelab.llm import llm_from_env
 from tastelab.qloo_client import QlooError, client_from_env
@@ -22,15 +22,17 @@ except Exception:  # no secrets file locally
     pass
 
 st.set_page_config(page_title="Taste Lab", page_icon="🧪", layout="wide")
-st.title("🧪 Taste Lab")
-st.caption("Qloo-powered taste personas, a synthetic focus group, best-fit US/EU cities and persona-specific ad copy.")
+st.markdown(ui.style_tag(), unsafe_allow_html=True)
+st.markdown(ui.hero(), unsafe_allow_html=True)
 
 probe = client_from_env()
 if probe.mode == "demo":
-    st.warning("**DEMO MODE:** no Qloo API key is configured, so results come from synthetic fixtures, "
-               "not from Qloo. Set `QLOO_API_KEY` for live Qloo data.")
+    st.markdown(ui.note("<b>Demo mode.</b> No Qloo API key is set, so results come from synthetic fixtures, "
+                        "not from Qloo. Set <code>QLOO_API_KEY</code> for live Qloo data.", "warn"),
+                unsafe_allow_html=True)
 else:
-    st.success("Live Qloo data: every insight below cites the Qloo result behind it.")
+    st.markdown(ui.note("<b>Live Qloo data.</b> Every insight below cites the Qloo result behind it.", "live"),
+                unsafe_allow_html=True)
 
 EXAMPLE = {
     "name": "Ridgeline Daypack",
@@ -82,57 +84,37 @@ if go:
 
 run = st.session_state.get("run")
 if run:
-    if run["mode"] == "demo":
-        st.info("Showing DEMO results (synthetic).")
+    colors = ui.persona_colors([r["persona"]["name"] for r in run["personas"]])
     if run["llm"] != "gemini":
-        st.warning("Gemini key not set: persona reactions, scores and ad copy use generic templates. "
-                   "The Qloo data (signals, cities, evidence) is real.")
+        st.markdown(ui.note("Gemini key not set: persona reactions, scores and ad copy use generic templates. "
+                            "The Qloo data (signals, cities, evidence) is real.", "warn"), unsafe_allow_html=True)
     for w in run["warnings"][:3]:
         st.caption(f"Note: {w}")
-    st.subheader("Focus-group synthesis")
-    st.write(run["synthesis"])
+    st.markdown(ui.verdict(run["synthesis"]), unsafe_allow_html=True)
 
-    t1, t2, t3, t4 = st.tabs(["Personas & reactions", "City fit", "Ad copy", "Qloo evidence & trace"])
+    t1, t2, t3, t4 = st.tabs(["Personas", "City fit", "Ad copy", "Qloo evidence"])
     with t1:
-        for r in run["personas"]:
-            p, rx = r["persona"], r["reaction"]
-            with st.expander(f"{p['name']}: intent {rx['score']}/10", expanded=True):
-                st.caption(p["tagline"])
-                st.write(rx["reaction"])
-                c1, c2 = st.columns(2)
-                c1.markdown("**Loves**\n" + "\n".join(f"- {x}" for x in rx["loves"]))
-                c2.markdown("**Concerns**\n" + "\n".join(f"- {x}" for x in rx["concerns"]))
-                for t, rows in r["signature"]["signature"].items():
-                    if rows:
-                        st.markdown(f"*Qloo {t} signal:* " + ", ".join(f"{x['name']} `{x['evidence']}`" for x in rows))
+        cols = st.columns(2)
+        for i, r in enumerate(run["personas"]):
+            with cols[i % 2]:
+                st.markdown(ui.plate(r, colors[r["persona"]["name"]]), unsafe_allow_html=True)
     with t2:
-        import altair as alt
+        st.markdown("### Best city for each persona")
+        st.markdown(ui.best_city(run["cities"], colors), unsafe_allow_html=True)
+        st.markdown("### All cities, ranked")
+        st.markdown(ui.cities(run["cities"], colors), unsafe_allow_html=True)
+        st.caption("Bars show each city's Qloo place-affinity score against the average of the compared cities. "
+                   "Big cities score close together, so differences are small.")
         import pandas as pd
 
-        cdf = pd.DataFrame([{"City": c["city"], "Points vs average": c["vs_avg"], "Score": c["score"]}
-                            for c in run["cities"]])
-        chart = (alt.Chart(cdf).mark_bar().encode(
-            x=alt.X("City:N", sort=None, axis=alt.Axis(labelAngle=0)),
-            y=alt.Y("Points vs average:Q"),
-            color=alt.condition(alt.datum["Points vs average"] > 0, alt.value("#14b8a6"), alt.value("#94a3b8")),
-            tooltip=["City", "Score", "Points vs average"]).properties(height=300))
-        st.altair_chart(chart, width="stretch")
-        st.caption("Bars show each city's Qloo place-affinity score relative to the average of the compared "
-                   "cities (points). Taste fit is similar across big cities, so differences are small; "
-                   "the table below shows which city suits which persona best.")
-        for c in run["cities"]:
-            places = ", ".join(f"{p['name']} `{p['evidence']}`" for p in c["top_places"]) or "no data returned"
-            st.markdown(f"**{c['city']}: {c['score']}/100** ({c['vs_avg']:+.1f} vs avg). {places}")
         matrix = pd.DataFrame({c["city"]: c["by_persona"] for c in run["cities"]})
         if not matrix.empty:
-            st.markdown("**Best city per persona** (Qloo place affinity, 0-100)")
-            st.dataframe(matrix.style.highlight_max(axis=1, color="#99f6e4").format("{:.1f}"), width="stretch")
+            st.dataframe(matrix.style.highlight_max(axis=1, color="#E7B7C8").format("{:.1f}"), width="stretch")
     with t3:
-        for r in run["personas"]:
-            ad = r["ad"]
-            st.markdown(f"#### {r['persona']['name']}")
-            st.markdown(f"**{ad['headline']}**\n\n{ad['body']}\n\n*CTA: {ad['cta']}*")
-            st.caption(f"Why this hook: {ad['hook_reason']} Evidence: {', '.join(ad['evidence']) or '-'}")
+        cols = st.columns(2)
+        for i, r in enumerate(run["personas"]):
+            with cols[i % 2]:
+                st.markdown(ui.ad(r, colors[r["persona"]["name"]]), unsafe_allow_html=True)
     with t4:
         st.dataframe(list(run["evidence"].values()), width="stretch")
         st.markdown("**Every Qloo call made in this run**")
@@ -142,4 +124,5 @@ if run:
     d1.download_button("Download report (HTML, print to PDF)", to_html(run), "taste-lab-report.html", "text/html")
     d2.download_button("Download report (Markdown)", to_markdown(run), "taste-lab-report.md", "text/markdown")
 else:
-    st.info("Enter a product in the sidebar (or load the example) and press **Run Taste Lab**.")
+    st.markdown(ui.note("Enter a product in the sidebar, or load the example, then press <b>Run Taste Lab</b>."),
+                unsafe_allow_html=True)

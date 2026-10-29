@@ -52,6 +52,13 @@ class Evidence:
 
 
 # --------------------------------------------------------------------------- personas
+def _short(text: str, limit: int = 110) -> str:
+    first = text.strip().split('. ')[0].rstrip('.')
+    if len(first) > limit:
+        first = first[:limit].rsplit(' ', 1)[0]
+    return first + '.'
+
+
 def plan_personas(brief: Brief, llm: LLM) -> list[dict[str, Any]]:
     prompt = f"""You design buyer personas for a small e-commerce brand selling to {brief.market}.
 Product: {brief.product_name}
@@ -218,7 +225,7 @@ The hook must reference a taste signal by name and cite its evidence id. No fake
     anchor = top["name"] if top else "what you love"
     return {
         "headline": f"{brief.product_name}, made for {persona['name'].replace('The ', '').lower()}s",
-        "body": f"If you are into {anchor}, you will notice the details. {brief.description[:90].rstrip('.')}.",
+        "body": f"If you are into {anchor}, you will notice the details. {_short(brief.description)}",
         "cta": "Take a closer look",
         "hook_reason": f"Opens with {anchor}, a high-affinity signal for this persona.",
         "evidence": [top["evidence"]] if top else [],
