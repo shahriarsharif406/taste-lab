@@ -189,6 +189,40 @@ button[role="tab"],button[role="tab"] *{font-family:var(--serif)!important;font-
 .tl-foot{margin:3rem 0 1rem;padding-top:1rem;border-top:1px solid var(--ink);font-family:var(--serif);font-style:italic;font-size:1.15rem;color:#4a4a45}
 [data-testid="stSidebar"]{background:#0E0E0E}
 [data-testid="stSidebar"] button[data-testid="stBaseButton-primary"]:hover{background:#D6B4AC}
+
+/* ---- v4: bottle-green wardrobe sidebar, aurora cover ---- */
+[data-testid="stSidebar"]{background:var(--grain),linear-gradient(180deg,#12261F 0%,#0B1814 100%);background-blend-mode:soft-light,normal}
+[data-testid="stSidebar"] > div{background:transparent}
+[data-testid="stSidebar"] h2{color:#D9BE85;font-size:2.1rem;border-bottom:1px solid rgba(217,190,133,.35);padding-bottom:.7rem;margin-bottom:.8rem}
+[data-testid="stSidebar"] label p{color:#A9B8B2;font-weight:500}
+[data-testid="stSidebar"] input,[data-testid="stSidebar"] textarea{border-bottom:1px solid rgba(217,190,133,.5)!important;color:#F4EFE4!important}
+[data-testid="stSidebar"] input::placeholder{color:#6F8780!important}
+[data-testid="stSidebar"] .stButton>button{border:1px solid rgba(217,190,133,.7);color:#E8D5A8;background:transparent}
+[data-testid="stSidebar"] .stButton>button:hover{background:#D9BE85;color:#0B1814;border-color:#D9BE85}
+[data-testid="stSidebar"] .stButton>button:hover *{color:#0B1814}
+[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"]{background:#D9BE85;color:#0B1814;border:0;font-weight:600;letter-spacing:.01em}
+[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] *{color:#0B1814}
+[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"]:hover{background:#F0DDB0}
+[data-testid="stSidebar"] [data-baseweb="select"]>div{border-bottom:1px solid rgba(217,190,133,.5)!important}
+[data-testid="stSidebar"] [data-testid="stSlider"] [role="slider"]{background:#D9BE85!important}
+
+.tl-cover{display:block;gap:0;height:clamp(300px,37vw,470px);background:#0A100E;isolation:isolate;box-shadow:0 30px 60px -40px rgba(0,0,0,.6)}
+.tl-cover .orb{position:absolute;border-radius:50%;filter:blur(64px);opacity:.92;z-index:0}
+.tl-cover .o1{width:46%;height:90%;left:-8%;top:-30%;background:#8A2540}
+.tl-cover .o2{width:40%;height:80%;left:26%;top:30%;background:#2F7A66}
+.tl-cover .o3{width:44%;height:90%;right:8%;top:-34%;background:#2A4A9A}
+.tl-cover .o4{width:30%;height:70%;right:-8%;bottom:-30%;background:#C79D52}
+.tl-cover:before{content:"";position:absolute;inset:0;background-image:var(--grain);mix-blend-mode:overlay;opacity:.6;z-index:1;pointer-events:none}
+.tl-cover:after{content:"";position:absolute;inset:14px;border:1px solid rgba(255,255,255,.3);z-index:2;pointer-events:none}
+.tl-cover .band{display:none}
+.tl-top{position:absolute;left:30px;right:30px;top:28px;display:flex;justify-content:space-between;font-size:.95rem;color:rgba(255,255,255,.85);z-index:3}
+.tl-mast{z-index:3;left:30px;bottom:14px;font-size:clamp(4.4rem,15.5vw,14rem);letter-spacing:-.055em;text-shadow:0 4px 60px rgba(0,0,0,.35)}
+@media (prefers-reduced-motion:no-preference){
+.tl-cover .o1{animation:tl-d1 22s ease-in-out infinite alternate}.tl-cover .o2{animation:tl-d2 26s ease-in-out infinite alternate}
+.tl-cover .o3{animation:tl-d1 30s ease-in-out infinite alternate-reverse}.tl-cover .o4{animation:tl-d2 24s ease-in-out infinite alternate-reverse}}
+@keyframes tl-d1{from{transform:translate(0,0) scale(1)}to{transform:translate(8%,10%) scale(1.15)}}
+@keyframes tl-d2{from{transform:translate(0,0) scale(1.05)}to{transform:translate(-10%,-8%) scale(.92)}}
+@media (max-width:820px){.tl-top{font-size:.8rem}.tl-cover{height:260px}}
 """
 
 e = html.escape
@@ -212,9 +246,9 @@ def style_tag() -> str:
 
 
 def hero() -> str:
-    flex = [3, 2, 4, 1.4, 2.4]
-    bands = "".join(f'<div class="band" style="flex:{f};background:{c}"></div>' for c, f in zip(PALETTE, flex))
-    return (f'<div class="tl-cover">{bands}<div class="tl-mast">Taste Lab</div></div>'
+    return ('<div class="tl-cover"><i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i><i class="orb o4"></i>'
+            '<div class="tl-top"><span>Taste intelligence for fashion and lifestyle brands</span><span>Powered by Qloo</span></div>'
+            '<div class="tl-mast">Taste Lab</div></div>'
             '<div class="tl-subline"><p>Know who will love it, where they live, and what to say to them.</p>'
             '<small>Buyer personas built from Qloo taste data, tested by a synthetic focus group.</small></div>')
 
