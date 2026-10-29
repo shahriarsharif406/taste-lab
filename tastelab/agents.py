@@ -82,8 +82,8 @@ movies that this persona genuinely loves (mix of types). Seeds are used to query
     data = llm.json(prompt, system="You are a precise consumer-insights strategist. Output JSON only.")
     personas: list[dict[str, Any]] = []
     raw = data.get("personas") if isinstance(data, dict) else data
-    for p in (raw if isinstance(raw, list) else [])[: brief.num_personas]:
-        if not isinstance(p, dict):
+    for p in (raw if isinstance(raw, list) else []):
+        if not isinstance(p, dict) or len(personas) >= brief.num_personas:
             continue
         seeds = []
         for s_ in _as_list(p.get("seeds")):
