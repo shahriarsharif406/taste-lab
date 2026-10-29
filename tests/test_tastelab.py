@@ -118,3 +118,24 @@ def test_product_html_parsing():
     og = '<meta property="og:title" content="Tea &amp; Co"><meta property="og:description" content="Loose leaf">'
     info = shopify.parse_product_html(og)
     assert info["name"] == "Tea & Co" and info["description"] == "Loose leaf"
+
+
+def test_messy_llm_output_does_not_crash():
+    class Messy(LLM):
+        def __init__(self):
+            super().__init__(api_key="k")
+
+        def json(self, prompt, system=""):
+            if "design buyer personas" in prompt:
+                return {"personas": ["junk", {"name": "A", "seeds": ["Muji"]},
+                                     {"name": "B", "tagline": "t", "seeds": [{"name": "Muji", "type": "Brand"}]},
+                                     {"name": "C", "tagline": "t", "seeds": [{"name": "Bonobo", "type": "artist"}]}]}
+            if "React in first" in prompt:
+                return {"reaction": "ok", "score": "8", "loves": "one", "concerns": None, "evidence": "Q1"}
+            if "moderate" in prompt:
+                return {"synthesis": "x"}
+            return {"headline": "h", "body": "b", "cta": "c", "hook_reason": "r", "evidence": "Q1"}
+
+    run = run_taste_lab(brief(), QlooClient(api_key=None), Messy())
+    assert [r["persona"]["name"] for r in run["personas"]] == ["B", "C"]
+    assert run["personas"][0]["reaction"]["loves"] == ["one"] and run["personas"][0]["reaction"]["concerns"] == []

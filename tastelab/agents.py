@@ -52,6 +52,13 @@ class Evidence:
 
 
 # --------------------------------------------------------------------------- personas
+def _as_list(x: Any) -> list[Any]:
+    """LLMs sometimes return a bare string or null where a list was asked for."""
+    if x is None:
+        return []
+    return list(x) if isinstance(x, (list, tuple)) else [x]
+
+
 def _short(text: str, limit: int = 110) -> str:
     first = text.strip().split('. ')[0].rstrip('.')
     if len(first) > limit:
@@ -74,12 +81,22 @@ Create {brief.num_personas} clearly different personas. Each has 3 seeds: real, 
 movies that this persona genuinely loves (mix of types). Seeds are used to query a taste-graph API."""
     data = llm.json(prompt, system="You are a precise consumer-insights strategist. Output JSON only.")
     personas: list[dict[str, Any]] = []
-    if isinstance(data, dict):
-        for p in (data.get("personas") or [])[: brief.num_personas]:
-            seeds = [(s.get("name"), s.get("type")) for s in p.get("seeds", [])
-                     if isinstance(s, dict) and s.get("name") and s.get("type") in SIGNATURE_TYPES]
-            if p.get("name") and seeds:
-                personas.append({"name": str(p["name"]), "tagline": str(p.get("tagline", "")), "seeds": seeds})
+    raw = data.get("personas") if isinstance(data, dict) else data
+    for p in (raw if isinstance(raw, list) else [])[: brief.num_personas]:
+        if not isinstance(p, dict):
+            continue
+        seeds = []
+        for s_ in _as_list(p.get("seeds")):
+            if isinstance(s_, dict):
+                n_, t_ = s_.get("name"), str(s_.get("type", "")).lower()
+            elif isinstance(s_, (list, tuple)) and len(s_) == 2:
+                n_, t_ = s_[0], str(s_[1]).lower()
+            else:
+                continue
+            if n_ and t_ in SIGNATURE_TYPES:
+                seeds.append((str(n_), t_))
+        if p.get("name") and seeds:
+            personas.append({"name": str(p["name"]), "tagline": str(p.get("tagline", "")), "seeds": seeds})
     if len(personas) < min(2, brief.num_personas):
         personas = [dict(a, seeds=list(a["seeds"])) for a in demo_data.ARCHETYPES[: brief.num_personas]]
     return personas
@@ -131,9 +148,9 @@ Return JSON: {{"reaction": str (2-3 sentences), "score": int 1-10 (purchase inte
         except (TypeError, ValueError):
             score = 6
         return {"reaction": str(data["reaction"]), "score": score,
-                "loves": [str(x) for x in data.get("loves", [])][:4],
-                "concerns": [str(x) for x in data.get("concerns", [])][:4],
-                "evidence": [str(x) for x in data.get("evidence", [])] or all_ev[:3]}
+                "loves": [str(x) for x in _as_list(data.get("loves"))][:4],
+                "concerns": [str(x) for x in _as_list(data.get("concerns"))][:4],
+                "evidence": [str(x) for x in _as_list(data.get("evidence"))] or all_ev[:3]}
     # offline fallback: deterministic, derived from real affinity numbers
     affs = [r["affinity"] for rows in sig["signature"].values() for r in rows if r["affinity"] is not None]
     avg = mean(affs) if affs else 0.6
@@ -222,7 +239,7 @@ Return JSON: {{"headline": str (<=8 words), "body": str (<=35 words), "cta": str
 The hook must reference a taste signal by name and cite its evidence id. No fake claims or testimonials."""
     data = llm.json(prompt, system="You are a direct-response copywriter who never fabricates claims.")
     if isinstance(data, dict) and data.get("headline"):
-        return {k: (data.get(k, "") if k != "evidence" else [str(x) for x in data.get("evidence", [])])
+        return {k: (str(data.get(k, "")) if k != "evidence" else [str(x) for x in _as_list(data.get("evidence"))])
                 for k in ("headline", "body", "cta", "hook_reason", "evidence")}
     top = next((r for rows in sig["signature"].values() for r in rows), None)
     anchor = top["name"] if top else "what you love"
