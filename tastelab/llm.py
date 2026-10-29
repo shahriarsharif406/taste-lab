@@ -47,7 +47,12 @@ class LLM:
             resp = self.session.post(url, json=body, timeout=self.timeout,
                                      headers={"x-goog-api-key": self.api_key})
             if resp.status_code >= 400:
-                self.warnings.append(f"LLM HTTP {resp.status_code}; used offline fallback")
+                detail = ""
+                try:
+                    detail = str(resp.json().get("error", {}).get("message", ""))[:160]
+                except Exception:  # noqa: BLE001
+                    pass
+                self.warnings.append(f"Gemini HTTP {resp.status_code}: {detail or 'no detail'}; used offline fallback")
                 return None
             text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
             return parse_json_loose(text)

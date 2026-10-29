@@ -86,8 +86,12 @@ run = st.session_state.get("run")
 if run:
     colors = ui.persona_colors([r["persona"]["name"] for r in run["personas"]])
     if run["llm"] != "gemini":
-        st.markdown(ui.note("Gemini key not set: persona reactions, scores and ad copy use generic templates. "
-                            "The Qloo data (signals, cities, evidence) is real.", "warn"), unsafe_allow_html=True)
+        if config.gemini_api_key():
+            msg = "Gemini key is set but the call failed, so generic templates were used. " + " ".join(run["warnings"][:1])
+        else:
+            msg = ("Gemini key not set: persona reactions, scores and ad copy use generic templates. "
+                   "The Qloo data (signals, cities, evidence) is real.")
+        st.markdown(ui.note(msg, "warn"), unsafe_allow_html=True)
     for w in run["warnings"][:3]:
         st.caption(f"Note: {w}")
     st.markdown(ui.verdict(run["synthesis"]), unsafe_allow_html=True)

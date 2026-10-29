@@ -56,7 +56,10 @@ def _short(text: str, limit: int = 110) -> str:
     first = text.strip().split('. ')[0].rstrip('.')
     if len(first) > limit:
         first = first[:limit].rsplit(' ', 1)[0]
-    return first + '.'
+    words = first.split()
+    while words and words[-1].lower() in {'and', 'or', 'for', 'to', 'with', 'by', 'the', 'a', 'of', 'in'}:
+        words.pop()
+    return ' '.join(words) + '.'
 
 
 def plan_personas(brief: Brief, llm: LLM) -> list[dict[str, Any]]:
