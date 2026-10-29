@@ -94,7 +94,8 @@ def test_json_loose_parser():
     assert parse_json_loose('Sure! {"a": [1,2]} done') == {"a": [1, 2]}
 
 
-def test_llm_failure_falls_back():
+def test_llm_failure_falls_back(monkeypatch):
+    monkeypatch.setattr('time.sleep', lambda *_: None)
     class BadSession:
         def post(self, *a, **k):
             return FakeResp(500)
