@@ -262,25 +262,32 @@ def run_taste_lab(brief: Brief, client: QlooClient, llm: LLM, progress=None) -> 
     tick("Designing personas")
     personas = plan_personas(brief, llm)
 
-    results: list[dict[str, Any]] = []
-    for p in personas:
+    from concurrent.futures import ThreadPoolExecutor
+
+    if llm.available:
+        llm.candidates()  # discover models once, before threads start
+
+    sigs = []
+    for p in personas:  # Qloo calls stay sequential so evidence ids are deterministic
         tick(f"Querying Qloo for {p['name']}")
-        sig = build_signature(client, ev, p)
-        tick(f"Focus group: {p['name']}")
-        reaction = react(brief, p, sig, llm)
-        results.append({"persona": p, "signature": sig, "reaction": reaction})
+        sigs.append(build_signature(client, ev, p))
 
-    tick("Moderator synthesis")
-    synthesis = moderate(brief, results, llm)
+    tick("Focus group reacting (parallel)")
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        reactions = list(pool.map(lambda ps: react(brief, ps[0], ps[1], llm), zip(personas, sigs)))
+        results: list[dict[str, Any]] = [{"persona": p, "signature": sg, "reaction": rx}
+                                         for p, sg, rx in zip(personas, sigs, reactions)]
 
-    tick("Ranking cities with Qloo location insights")
-    union_ids = list(dict.fromkeys(i for r in results for i in r["signature"]["seed_ids"]))
-    cities = city_fit(client, ev, brief, union_ids,
-                      [(r['persona']['name'], r['signature']['seed_ids']) for r in results])
+        tick("Writing ad copy and synthesis while ranking cities")
+        ad_futs = [pool.submit(ad_copy, brief, r["persona"], r["signature"], r["reaction"], llm) for r in results]
+        syn_fut = pool.submit(moderate, brief, results, llm)
 
-    tick("Writing persona-specific ad copy")
-    for r in results:
-        r["ad"] = ad_copy(brief, r["persona"], r["signature"], r["reaction"], llm)
+        union_ids = list(dict.fromkeys(i for r in results for i in r["signature"]["seed_ids"]))
+        cities = city_fit(client, ev, brief, union_ids,
+                          [(r['persona']['name'], r['signature']['seed_ids']) for r in results])
+        for r, f in zip(results, ad_futs):
+            r["ad"] = f.result()
+        synthesis = syn_fut.result()
 
     return {
         "brief": brief.__dict__,
