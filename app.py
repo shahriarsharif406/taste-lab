@@ -117,7 +117,7 @@ if run:
 
         matrix = pd.DataFrame({c["city"]: c["by_persona"] for c in run["cities"]})
         if not matrix.empty:
-            st.dataframe(matrix.style.highlight_max(axis=1, color="#E7B7C8").format("{:.1f}"), width="stretch")
+            st.dataframe(matrix.style.highlight_max(axis=1, color="#D6B4AC").format("{:.1f}"), width="stretch")
     with t3:
         cols = st.columns(2)
         for i, r in enumerate(run["personas"]):
@@ -128,6 +128,7 @@ if run:
         st.markdown("**Every Qloo call made in this run**")
         st.dataframe(run["trace"], width="stretch")
 
+    st.markdown(ui.footer(), unsafe_allow_html=True)
     d1, d2 = st.columns(2)
     d1.download_button("Download report (HTML, print to PDF)", to_html(run), "taste-lab-report.html", "text/html")
     d2.download_button("Download report (Markdown)", to_markdown(run), "taste-lab-report.md", "text/markdown")

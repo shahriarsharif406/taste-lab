@@ -9,7 +9,7 @@ from __future__ import annotations
 import html
 from typing import Any
 
-PALETTE = ["#7B1E3A", "#2F5D50", "#2748C6", "#E7B7C8", "#C99A2E"]  # claret, bottle green, cobalt, blush, ochre
+PALETTE = ["#5E1B2E", "#24413A", "#1D2B4F", "#D6B4AC", "#A98749"]  # oxblood, deep pine, midnight navy, rose quartz, antique brass
 
 CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..800;1,6..96,400..700&family=Instrument+Sans:ital,wght@0,400..700;1,400..600&display=swap');
@@ -152,6 +152,39 @@ button[data-testid="stBaseButton-primary"]:hover{background:#000}
 @media (max-width:820px){.tl-city{grid-template-columns:1fr 90px}.tl-verdict{padding-left:0}.tl-verdict:before{display:none}.tl-cover{height:220px}}
 @media (prefers-reduced-motion:no-preference){.tl-cover .band{animation:tl-rise 1s cubic-bezier(.2,.7,.2,1) both}.tl-cover .band:nth-child(2){animation-delay:.08s}.tl-cover .band:nth-child(3){animation-delay:.16s}.tl-cover .band:nth-child(4){animation-delay:.24s}.tl-cover .band:nth-child(5){animation-delay:.32s}}
 @media (prefers-reduced-motion:reduce){.tl-ticker-in{animation:none}}
+
+button[role="tab"],button[role="tab"] *{font-family:var(--serif)!important;font-style:italic!important;font-size:1.55rem!important;font-weight:500!important}
+/* ---- v3: fabric, grain, restraint ---- */
+:root{--paper:#F7F7F6;--wash:#EFEFED;--line:#DAD9D5;--grain:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+.stApp{background:var(--paper)}
+.block-container{padding-top:.6rem}
+.tl-cover{gap:3px;background:var(--paper)}
+.tl-cover .band{position:relative;background-image:linear-gradient(172deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,0) 38%,rgba(0,0,0,.28) 100%)}
+.tl-cover .band:after,.tl-plate-top:before,.tl-ad:before{content:"";position:absolute;inset:0;background-image:var(--grain);mix-blend-mode:overlay;opacity:.55;pointer-events:none}
+.tl-mast{mix-blend-mode:normal;color:#fff;font-weight:400;letter-spacing:-.05em;font-size:clamp(4rem,13.5vw,12rem);left:2.4%;bottom:-.04em;text-shadow:0 2px 40px rgba(0,0,0,.25)}
+.tl-subline{border-bottom:1px solid var(--ink);padding:1.2rem 0 1.5rem}
+.tl-subline p{font-weight:400}
+.tl-plate{box-shadow:0 1px 0 var(--line),0 18px 40px -28px rgba(0,0,0,.35)}
+.tl-plate-top{background-image:linear-gradient(165deg,rgba(255,255,255,.14),rgba(0,0,0,.26))}
+.tl-score{font-weight:300;letter-spacing:-.05em}
+.tl-ad{background-image:linear-gradient(165deg,rgba(255,255,255,.12),rgba(0,0,0,.24))}
+.tl-ad:after,.tl-plate-top:after{opacity:.3}
+.tl-ad-cta{border-width:1px;padding:.55rem 1.4rem;font-weight:500}
+.tl-chip{border-color:var(--line);background:transparent}
+.tl-track{height:6px;background:var(--line)}
+.tl-track:after{top:-9px;bottom:-9px}
+.tl-city{padding:1.5rem 0;border-bottom:1px solid var(--line)}
+.tl-city-name{font-weight:400}
+.tl-best span{border-radius:0;box-shadow:0 12px 24px -18px rgba(0,0,0,.45)}
+.tl-ticker{background:#0E0E0E;padding:1rem 0}
+.tl-ticker span{font-size:1.35rem;opacity:.92}
+.tl-note{background:transparent;border:0;border-left:2px solid var(--ink);padding:.3rem .9rem;color:#4a4a45}
+.tl-note.warn{border-left-color:#A98749;background:transparent}
+.tl-note.live{border-left-color:#24413A;background:transparent}
+.tl-verdict:before{color:#5E1B2E;font-weight:400}
+.tl-foot{margin:3rem 0 1rem;padding-top:1rem;border-top:1px solid var(--ink);font-family:var(--serif);font-style:italic;font-size:1.15rem;color:#4a4a45}
+[data-testid="stSidebar"]{background:#0E0E0E}
+[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"]:hover{background:#D6B4AC}
 """
 
 e = html.escape
@@ -188,6 +221,10 @@ def ticker(names: list[str]) -> str:
         return ""
     one = "".join(f'<span>{e(n)}</span><i style="background:{PALETTE[k % len(PALETTE)]}"></i>' for k, n in enumerate(uniq))
     return f'<div class="tl-ticker" aria-label="Qloo taste signals found in this run"><div class="tl-ticker-in">{one}{one}</div></div>'
+
+
+def footer() -> str:
+    return '<div class="tl-foot">Taste signals from Qloo. Copy and reactions written with Gemini. No personal data about individuals is used.</div>'
 
 
 def note(text: str, kind: str = "") -> str:
