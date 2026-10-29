@@ -32,6 +32,26 @@ class LLM:
     def __repr__(self) -> str:
         return f"LLM(model={self.model!r}, available={self.available})"
 
+    def pick_model(self) -> str | None:
+        """Ask Google which models this key can use; choose the newest plain Flash model."""
+        try:
+            r = self.session.get("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
+                                 headers={"x-goog-api-key": self.api_key}, timeout=20)
+            if r.status_code >= 400:
+                return None
+            names = []
+            for m in r.json().get("models", []):
+                n = m.get("name", "").removeprefix("models/")
+                if "generateContent" in m.get("supportedGenerationMethods", []) and "flash" in n \
+                        and not any(x in n for x in ("lite", "image", "tts", "live", "audio", "thinking", "robotics", "embed")):
+                    names.append(n)
+            def key(n: str):
+                nums = re.findall(r"\d+(?:\.\d+)?", n)
+                return (float(nums[0]) if nums else 0, "preview" not in n and "exp" not in n, n)
+            return max(names, key=key) if names else None
+        except (requests.RequestException, ValueError):
+            return None
+
     def json(self, prompt: str, system: str = "") -> Any | None:
         """Ask for a JSON answer. Returns parsed JSON or None (caller falls back)."""
         if not self.available:
@@ -46,6 +66,12 @@ class LLM:
         try:
             resp = self.session.post(url, json=body, timeout=self.timeout,
                                      headers={"x-goog-api-key": self.api_key})
+            if resp.status_code in (400, 404) and not getattr(self, "_retried", False):
+                self._retried = True
+                alt = self.pick_model()
+                if alt and alt != self.model:
+                    self.model = alt
+                    return self.json(prompt, system)
             if resp.status_code >= 400:
                 detail = ""
                 try:
