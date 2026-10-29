@@ -259,6 +259,17 @@ button[role="tab"],button[role="tab"] *{font-family:var(--serif)!important;font-
 @media (max-width:820px){.tl-colL,.tl-colR,.tl-keytop,.tl-keybot{display:none}.tl-top{left:24px;right:24px}.tl-mast{left:24px;bottom:16px}}
 [data-testid="stSidebar"] h2{position:relative;border-bottom:0;padding-bottom:1.6rem;margin-bottom:.4rem}
 [data-testid="stSidebar"] h2:after{content:"";position:absolute;left:0;right:0;bottom:0;height:20px;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='26' height='20' viewBox='0 0 26 20'><path d='M0 18H26M22 18V2H6V13H15V7' fill='none' stroke='%23D9BE85' stroke-width='2'/></svg>") repeat-x left center;opacity:.7}
+
+/* ---- v7: steps strip, shorter cover ---- */
+.tl-cover{height:clamp(280px,31vw,400px)}
+.tl-emblem{width:140px;height:140px;top:78px}.tl-emblem svg{width:140px;height:140px}.tl-emblem b{font-size:1.4rem}
+.tl-mast{font-size:clamp(3.8rem,11vw,10rem)}
+.tl-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:0 0 1.4rem;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.tl-step{padding:.9rem 1.1rem;border-left:1px solid var(--line)}
+.tl-step:first-child{border-left:0;padding-left:0}
+.tl-step b{display:block;font-family:var(--serif);font-style:italic;font-weight:500;font-size:1.35rem;line-height:1.1}
+.tl-step span{display:block;margin-top:.25rem;font-size:.88rem;color:var(--mute);line-height:1.35}
+@media (max-width:820px){.tl-steps{grid-template-columns:1fr 1fr}.tl-step:nth-child(3){border-left:0;padding-left:0}}
 """
 
 e = html.escape
@@ -312,6 +323,15 @@ def hero() -> str:
             '<div class="tl-key"></div>')
 
 
+def pipeline() -> str:
+    steps = [("Your product", "A URL or a short description"),
+             ("Taste signals", "Real Qloo data on what each audience loves"),
+             ("Buyer personas", "Who they are, and how they react"),
+             ("Marketing actions", "Best cities and ad copy to test first")]
+    cells = "".join(f'<div class="tl-step"><b>{e(a)}</b><span>{e(b)}</span></div>' for a, b in steps)
+    return f'<div class="tl-steps">{cells}</div>'
+
+
 def ticker(names: list[str]) -> str:
     uniq = list(dict.fromkeys(n for n in names if n))[:28]
     if len(uniq) < 4:
@@ -321,7 +341,7 @@ def ticker(names: list[str]) -> str:
 
 
 def footer() -> str:
-    return '<div class="tl-foot">Taste signals from Qloo. Copy and reactions written with Gemini. No personal data about individuals is used.</div>'
+    return '<div class="tl-foot">Taste signals come from Qloo. Reactions and copy are written by Gemini as hypotheses to test, not survey results. No personal data about individuals is used.</div>'
 
 
 def note(text: str, kind: str = "") -> str:

@@ -4,7 +4,7 @@ from tastelab import shopify
 from tastelab.agents import Brief, run_taste_lab
 from tastelab.llm import LLM, parse_json_loose
 from tastelab.qloo_client import QlooClient, QlooError
-from tastelab.report import to_html, to_markdown
+from tastelab.report import to_csv, to_html, to_markdown
 
 
 class FakeResp:
@@ -139,3 +139,10 @@ def test_messy_llm_output_does_not_crash():
     run = run_taste_lab(brief(), QlooClient(api_key=None), Messy())
     assert [r["persona"]["name"] for r in run["personas"]] == ["B", "C"]
     assert run["personas"][0]["reaction"]["loves"] == ["one"] and run["personas"][0]["reaction"]["concerns"] == []
+
+
+def test_csv_export_neutralises_formulas():
+    run = run_taste_lab(brief(), QlooClient(api_key=None), LLM(api_key=None))
+    run["personas"][0]["ad"]["headline"] = "=HYPERLINK(\"http://x\")"
+    out = to_csv(run)
+    assert out.splitlines()[0].startswith("persona,") and "'=HYPERLINK" in out

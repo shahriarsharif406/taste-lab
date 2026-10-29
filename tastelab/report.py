@@ -81,3 +81,23 @@ def to_html(run: dict[str, Any]) -> str:
            ".warn{background:#fff3cd;padding:.6rem;border-radius:8px}blockquote{margin:.5rem 0;color:#444}"
            "@media print{.card{break-inside:avoid}}")
     return f"<!doctype html><html><head><meta charset='utf-8'><title>Taste Lab report</title><style>{css}</style></head><body>{''.join(parts)}</body></html>"
+
+
+def to_csv(run: dict[str, Any]) -> str:
+    """One row per persona: reaction, concerns and ad copy, ready for a spreadsheet."""
+    import csv
+    import io
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["persona", "tagline", "intent_1_to_10", "concerns", "headline", "body", "cta", "evidence_ids"])
+
+    def safe(v: str) -> str:  # neutralise spreadsheet formula injection from model/product text
+        v = str(v)
+        return "'" + v if v[:1] in ("=", "+", "-", "@") else v
+
+    for r in run["personas"]:
+        p, rx, ad = r["persona"], r["reaction"], r["ad"]
+        w.writerow([safe(x) for x in (p["name"], p["tagline"], rx["score"], "; ".join(rx["concerns"]),
+                                      ad["headline"], ad["body"], ad["cta"], ", ".join(ad["evidence"]))])
+    return buf.getvalue()

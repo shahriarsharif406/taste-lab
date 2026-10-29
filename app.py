@@ -10,7 +10,7 @@ from tastelab import config, ui
 from tastelab.agents import Brief, run_taste_lab
 from tastelab.llm import llm_from_env
 from tastelab.qloo_client import QlooError, client_from_env
-from tastelab.report import to_html, to_markdown
+from tastelab.report import to_csv, to_html, to_markdown
 from tastelab.shopify import ProductPageError, fetch_product
 
 config.load_dotenv()
@@ -24,6 +24,7 @@ except Exception:  # no secrets file locally
 st.set_page_config(page_title="Taste Lab", page_icon="🧪", layout="wide", initial_sidebar_state="expanded")
 st.markdown(ui.style_tag(), unsafe_allow_html=True)
 st.markdown(ui.hero(), unsafe_allow_html=True)
+st.markdown(ui.pipeline(), unsafe_allow_html=True)
 
 probe = client_from_env()
 if probe.mode == "demo":
@@ -129,9 +130,10 @@ if run:
         st.dataframe(run["trace"], width="stretch")
 
     st.markdown(ui.footer(), unsafe_allow_html=True)
-    d1, d2 = st.columns(2)
+    d1, d2, d3 = st.columns(3)
     d1.download_button("Download report (HTML, print to PDF)", to_html(run), "taste-lab-report.html", "text/html")
     d2.download_button("Download report (Markdown)", to_markdown(run), "taste-lab-report.md", "text/markdown")
+    d3.download_button("Download ad copy (CSV)", to_csv(run), "taste-lab-ads.csv", "text/csv")
 else:
     st.markdown(ui.note("Enter a product in the sidebar, or load the example, then press <b>Run Taste Lab</b>."),
                 unsafe_allow_html=True)
