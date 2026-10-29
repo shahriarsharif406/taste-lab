@@ -21,7 +21,7 @@ try:  # Streamlit Cloud secrets -> env (keys stay server-side)
 except Exception:  # no secrets file locally
     pass
 
-st.set_page_config(page_title="Taste Lab", page_icon="🧪", layout="wide")
+st.set_page_config(page_title="Taste Lab", page_icon="🧪", layout="wide", initial_sidebar_state="expanded")
 st.markdown(ui.style_tag(), unsafe_allow_html=True)
 st.markdown(ui.hero(), unsafe_allow_html=True)
 

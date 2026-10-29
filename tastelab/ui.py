@@ -154,6 +154,10 @@ button[data-testid="stBaseButton-primary"]:hover{background:#000}
 @media (prefers-reduced-motion:reduce){.tl-ticker-in{animation:none}}
 
 button[role="tab"],button[role="tab"] *{font-family:var(--serif)!important;font-style:italic!important;font-size:1.55rem!important;font-weight:500!important}
+[data-testid="stSidebarCollapsedControl"],[data-testid="stExpandSidebarButton"],[data-testid="stSidebarCollapsedControl"] *,[data-testid="stExpandSidebarButton"] *{visibility:visible!important;opacity:1!important}
+[data-testid="stSidebarCollapsedControl"],[data-testid="stExpandSidebarButton"]{position:fixed;top:.8rem;left:.8rem;z-index:1000;background:#0E0E0E;color:#fff;border-radius:0;padding:.3rem .5rem}
+[data-testid="stSidebarCollapsedControl"] svg,[data-testid="stExpandSidebarButton"] svg{fill:#fff;color:#fff}
+[data-testid="stExpandSidebarButton"] *,[data-testid="stSidebarCollapsedControl"] *,[data-testid="stExpandSidebarButton"] svg path{color:#fff!important;fill:#fff!important}
 /* ---- v3: fabric, grain, restraint ---- */
 :root{--paper:#F7F7F6;--wash:#EFEFED;--line:#DAD9D5;--grain:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
 .stApp{background:var(--paper)}
