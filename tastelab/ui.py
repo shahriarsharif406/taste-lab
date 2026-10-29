@@ -236,6 +236,29 @@ button[role="tab"],button[role="tab"] *{font-family:var(--serif)!important;font-
 @media (prefers-reduced-motion:no-preference){.tl-mast{animation:tl-foil 9s ease-in-out infinite alternate}}
 @keyframes tl-foil{from{background-position:0% 0}to{background-position:100% 0}}
 @media (max-width:820px){.tl-dots{display:none}.tl-top{left:24px;right:24px;font-size:.85rem}.tl-mast{left:24px}}
+
+/* ---- v6: Olympus: meander, ionic columns, laurel, oracle ---- */
+.tl-key{height:20px;margin:.2rem 0 1.4rem;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='26' height='20' viewBox='0 0 26 20'><path d='M0 18H26M22 18V2H6V13H15V7' fill='none' stroke='%238F7131' stroke-width='2'/></svg>") repeat-x left center;opacity:.85}
+.tl-subline{border-bottom:0;padding-bottom:1rem;margin-bottom:0}
+.tl-keytop,.tl-keybot{position:absolute;left:84px;right:84px;height:20px;z-index:2;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='26' height='20' viewBox='0 0 26 20'><path d='M0 18H26M22 18V2H6V13H15V7' fill='none' stroke='%23D9BE85' stroke-width='2'/></svg>") repeat-x left center;opacity:.85}
+.tl-keytop{top:56px}
+.tl-keybot{bottom:28px;opacity:.55}
+.tl-colL,.tl-colR{position:absolute;top:16px;bottom:16px;width:52px;z-index:2;background:repeating-linear-gradient(90deg,rgba(217,190,133,.30) 0 2px,rgba(217,190,133,.06) 2px 8px);border-top:7px double rgba(217,190,133,.65);border-bottom:7px double rgba(217,190,133,.65)}
+.tl-colL{left:16px}.tl-colR{right:16px}
+.tl-colL:before,.tl-colR:before{content:"";position:absolute;left:-6px;right:-6px;top:-13px;height:6px;background:rgba(217,190,133,.5)}
+.tl-colL:after,.tl-colR:after{content:"";position:absolute;left:-6px;right:-6px;bottom:-13px;height:6px;background:rgba(217,190,133,.5)}
+.tl-cover{background:var(--grain),radial-gradient(110% 100% at 50% 0%,#244A3E 0%,#112620 52%,#08120F 100%);background-blend-mode:soft-light,normal}
+.tl-cover:after{inset:16px;border:0}
+.tl-top{left:104px;right:104px;top:26px;font-size:1.05rem}
+.tl-mast{left:104px;bottom:44px;font-size:clamp(4rem,12.5vw,11.5rem)}
+.tl-emblem{position:absolute;right:104px;top:84px;z-index:3;width:170px;height:170px;display:grid;place-items:center}
+.tl-emblem svg{position:absolute;inset:0}
+.tl-emblem b{font-family:var(--serif);font-style:italic;font-weight:500;color:#E9D7A6;font-size:1.7rem;letter-spacing:.01em}
+.tl-dots{right:104px;bottom:52px}
+@media (max-width:980px){.tl-emblem{display:none}}
+@media (max-width:820px){.tl-colL,.tl-colR,.tl-keytop,.tl-keybot{display:none}.tl-top{left:24px;right:24px}.tl-mast{left:24px;bottom:16px}}
+[data-testid="stSidebar"] h2{position:relative;border-bottom:0;padding-bottom:1.6rem;margin-bottom:.4rem}
+[data-testid="stSidebar"] h2:after{content:"";position:absolute;left:0;right:0;bottom:0;height:20px;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='26' height='20' viewBox='0 0 26 20'><path d='M0 18H26M22 18V2H6V13H15V7' fill='none' stroke='%23D9BE85' stroke-width='2'/></svg>") repeat-x left center;opacity:.7}
 """
 
 e = html.escape
@@ -258,13 +281,35 @@ def style_tag() -> str:
     return f"<style>{CSS}</style>"
 
 
+
+def _wreath(size: int = 170) -> str:
+    """Laurel wreath: two branches of leaves along a circle, drawn as inline SVG (brass)."""
+    import math
+    c, r = size / 2, size * 0.36
+    leaves = []
+    for side in (-1, 1):
+        for k in range(11):
+            t = math.radians(100 + k * 15)          # start low, climb up each side
+            ang = t if side < 0 else math.pi - t
+            x, y = c + r * math.cos(ang), c + r * math.sin(ang)
+            rot = math.degrees(ang) + (90 if side < 0 else -90) + side * -28
+            leaves.append(f'<ellipse cx="{x:.1f}" cy="{y:.1f}" rx="{size*0.045:.1f}" ry="{size*0.095:.1f}" '
+                          f'transform="rotate({rot:.1f} {x:.1f} {y:.1f})"/>')
+    return (f'<svg viewBox="0 0 {size} {size}" width="{size}" height="{size}" aria-hidden="true" fill="#D9BE85">'
+            f'<g opacity=".92">{"".join(leaves)}</g></svg>')
+
+
 def hero() -> str:
+    dots = "".join(f'<i style="background:{c}"></i>' for c in PALETTE)
     return ('<div class="tl-cover"><i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i><i class="orb o4"></i>'
-            '<div class="tl-top"><span>Taste intelligence for fashion and lifestyle brands</span><span>Powered by Qloo</span></div>'
+            '<div class="tl-colL"></div><div class="tl-colR"></div><div class="tl-keytop"></div><div class="tl-keybot"></div>'
+            '<div class="tl-top"><span>The oracle of taste, for fashion and lifestyle brands</span><span>Powered by Qloo</span></div>'
+            f'<div class="tl-emblem">{_wreath()}<b>\u03b3\u03b5\u1fe6\u03c3\u03b9\u03c2</b></div>'
             '<div class="tl-mast">Taste Lab</div>'
-            + '<div class="tl-dots">' + ''.join(f'<i style="background:{c}"></i>' for c in PALETTE) + '</div></div>'
+            f'<div class="tl-dots">{dots}</div></div>'
             '<div class="tl-subline"><p>Know who will love it, where they live, and what to say to them.</p>'
-            '<small>Buyer personas built from Qloo taste data, tested by a synthetic focus group.</small></div>')
+            '<small>Buyer personas built from Qloo taste data, tested by a synthetic focus group.</small></div>'
+            '<div class="tl-key"></div>')
 
 
 def ticker(names: list[str]) -> str:
