@@ -23,7 +23,12 @@ c = QlooClient(api_key=key, base_url=config.qloo_base_url(), demo=False)
 try:
     hits = c.search("Patagonia", "brand", take=3)
     print("search ->", [(h.name, h.id) for h in hits])
-    assert hits, "search returned nothing; check the response shape"
+    if not hits:
+        import requests
+        r = requests.get(config.qloo_base_url() + "/search", params={"query": "Patagonia", "take": 1},
+                         headers={"X-Api-Key": key}, timeout=20)
+        print("RAW search status:", r.status_code, "body[:600]:", r.text[:600])
+        sys.exit("search parsed 0 entities; paste the RAW line above so the parser can be fixed")
     recs = c.insights("brand", [hits[0].id], take=5)
     print("insights(brand) ->", [(r.name, r.affinity) for r in recs])
     places = c.insights("place", [hits[0].id], location="Berlin", take=5)
