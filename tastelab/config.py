@@ -36,8 +36,16 @@ def qloo_base_url() -> str:
     return os.environ.get("QLOO_BASE_URL", DEFAULT_QLOO_BASE_URL).rstrip("/")
 
 
+def clean_key(raw: str | None) -> str | None:
+    """Strip whitespace, quotes and any non-ASCII/control characters picked up by copy-paste."""
+    if not raw:
+        return None
+    k = "".join(ch for ch in raw.strip().strip("\"'") if 32 < ord(ch) < 127)
+    return k or None
+
+
 def gemini_api_key() -> str | None:
-    return os.environ.get("GEMINI_API_KEY") or None
+    return clean_key(os.environ.get("GEMINI_API_KEY"))
 
 
 def gemini_model() -> str:
