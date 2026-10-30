@@ -150,7 +150,11 @@ def build_signature(client: QlooClient, ev: Evidence, persona: dict[str, Any]) -
     signature: dict[str, list[dict[str, Any]]] = {}
     for t in SIGNATURE_TYPES:
         rows = []
-        for ent in client.insights(t, seed_ids, take=5):
+        seen: set[str] = set()
+        for ent in client.insights(t, seed_ids, take=6):
+            if ent.name.lower() in seen or len(rows) >= 5:  # Qloo can return two entities with one name
+                continue
+            seen.add(ent.name.lower())
             rows.append({"name": ent.name, "affinity": ent.affinity,
                          "evidence": ev.add(ent, "insights", f"{t} affinity for {persona['name']}")})
         signature[t] = rows
@@ -367,7 +371,8 @@ def radar_idea(brief: Brief, row: dict[str, Any], llm: LLM) -> dict[str, Any]:
 Audience: {row['persona']}. Best city: {row['city']}.
 Qloo says this audience's taste points to: {desc}
 Return JSON: {{"idea": str (max 40 words: one concrete collaboration or event idea using these partners),
-"evidence": [str]}}. Use only the partners listed; do not invent facts about them.""",
+"evidence": [str]}}. Use only partners from the list that genuinely fit this product and audience (at most two or three; skip any
+that make no sense for it, such as an unrelated fashion or airline brand). Do not invent facts about them.""",
         system="You are a brand partnerships strategist. Output JSON only.") if parts else None
     if isinstance(data, dict) and data.get("idea"):
         return {"idea": str(data["idea"]), "evidence": _ids(data.get("evidence"), allowed) or sorted(allowed)}
