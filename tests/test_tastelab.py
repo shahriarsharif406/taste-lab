@@ -201,3 +201,20 @@ def test_thin_seed_list_is_topped_up():
     persona = {"name": "X", "tagline": "", "seeds": [("IKEA", "brand")]}
     sig = build_signature(QlooClient(api_key=None), Evidence(), persona)
     assert len(sig["seed_ids"]) >= 3
+
+
+def test_radar_keeps_only_partners_the_model_picks():
+    from tastelab.agents import radar_idea
+
+    cand = {"brand": [{"name": "Porsche", "affinity": .9, "evidence": "Q1"}, {"name": "Osprey", "affinity": .9, "evidence": "Q2"}],
+            "artist": [{"name": "Tycho", "affinity": .9, "evidence": "Q3"}], "venue": []}
+    row = {"persona": "P", "city": "Berlin", "cand": cand}
+
+    class Fake:
+        available = True
+        warnings: list = []
+        def json(self, *a, **k):
+            return {"idea": "Pop-up with Osprey.", "evidence": ["Q2"]}
+
+    out = radar_idea(brief(), row, Fake())
+    assert out["brand"]["name"] == "Osprey" and out["artist"] is None and out["evidence"] == ["Q2"]

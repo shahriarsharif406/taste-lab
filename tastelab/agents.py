@@ -356,26 +356,35 @@ def radar_base(client: QlooClient, ev: Evidence, brief: Brief, results: list[dic
         venues = [{"name": p.name, "affinity": p.affinity,
                    "evidence": ev.add(p, "insights", f"place affinity in {city}")} for p in places]
         brands = [x for x in sig.get("brand", []) if x["name"].lower() != brief.product_name.lower()]
+        artists = list(sig.get("artist") or [])
         out.append({"persona": name, "city": city, "brand": brands[0] if brands else None,
-                    "artist": (sig.get("artist") or [None])[0], "venue": venues[0] if venues else None,
-                    "venues": venues})
+                    "artist": artists[0] if artists else None, "venue": venues[0] if venues else None,
+                    "venues": venues,
+                    "cand": {"brand": brands[:3], "artist": artists[:3], "venue": venues[:3]}})
     return out
 
 
 def radar_idea(brief: Brief, row: dict[str, Any], llm: LLM) -> dict[str, Any]:
-    parts = {k: row[k] for k in ("brand", "artist", "venue") if row.get(k)}
-    allowed = {v["evidence"] for v in parts.values()}
-    desc = "; ".join(f"{k}: {v['name']} [{v['evidence']}]" for k, v in parts.items())
+    """Write one collaboration idea. Qloo offers up to 3 brands, artists and venues; the model keeps only those that fit."""
+    cand = row.get("cand") or {k: [row[k]] if row.get(k) else [] for k in ("brand", "artist", "venue")}
+    by_id = {x["evidence"]: (k, x) for k, xs in cand.items() for x in xs}
+    desc = "\n".join(f"{k}s: " + ", ".join(f"{x['name']} [{x['evidence']}]" for x in xs) for k, xs in cand.items() if xs)
     data = llm.json(
         f"""Product: {brief.product_name} - {brief.description}
 Audience: {row['persona']}. Best city: {row['city']}.
-Qloo says this audience's taste points to: {desc}
-Return JSON: {{"idea": str (max 40 words: one concrete collaboration or event idea using these partners),
-"evidence": [str]}}. Use only partners from the list that genuinely fit this product and audience (at most two or three; skip any
-that make no sense for it, such as an unrelated fashion or airline brand). Do not invent facts about them.""",
-        system="You are a brand partnerships strategist. Output JSON only.") if parts else None
+Qloo says this audience's taste points to these candidates:
+{desc}
+Return JSON: {{"idea": str (max 40 words: one concrete collaboration or event idea), "evidence": [str]}} where evidence lists the ids of the
+partners you used. Choose only candidates that genuinely fit this product and audience (two or three at most). Skip any that make no
+sense for it, such as luxury cars, airlines or lingerie for a backpack. Do not invent facts about them.""",
+        system="You are a brand partnerships strategist. Output JSON only.") if by_id else None
     if isinstance(data, dict) and data.get("idea"):
-        return {"idea": str(data["idea"]), "evidence": _ids(data.get("evidence"), allowed) or sorted(allowed)}
+        used = _ids(data.get("evidence"), set(by_id)) or [x["evidence"] for k in ("brand", "artist", "venue") for x in cand[k][:1]]
+        picked: dict[str, Any] = {k: None for k in ("brand", "artist", "venue")}
+        for i in used:
+            k, x = by_id[i]
+            picked[k] = picked[k] or x
+        return {"idea": str(data["idea"]), "evidence": used, **picked}
     bits = []
     if row.get("brand"):
         bits.append(f"a limited drop with {row['brand']['name']}")
@@ -384,7 +393,7 @@ that make no sense for it, such as an unrelated fashion or airline brand). Do no
     where = f" at {row['venue']['name']}" if row.get("venue") else ""
     city = f" in {row['city']}" if row.get("city") else ""
     idea = ("Try " + " and ".join(bits) + where + city + ".") if bits else "No partner signals were returned."
-    return {"idea": idea, "evidence": sorted(allowed)}
+    return {"idea": idea, "evidence": sorted({x["evidence"] for k in ("brand", "artist", "venue") if row.get(k) for x in [row[k]]})}
 
 
 # --------------------------------------------------------------------------- launch playbook
@@ -405,7 +414,7 @@ def playbook(brief: Brief, results: list[dict[str, Any]], radar: list[dict[str, 
 {chr(10).join(ctx)}
 Return JSON: {{"steps": [{{"when": str, "action": str (max 30 words, concrete), "evidence": [str]}}]}} with exactly 4 steps
 (Week 1..Week 4). Lead with the strongest persona, test the partners above, and use week 4 to address the weakest persona's biggest
-concern and re-measure. Cite evidence ids like Q12 for taste-based choices. No invented numbers.""",
+concern and re-measure. Cite evidence ids like Q12 for taste-based choices. Mention a partner only if it makes sense for the product and the step; never force one in. No invented numbers.""",
         system="You are a pragmatic go-to-market strategist. Output JSON only.")
     steps: list[dict[str, Any]] = []
     if isinstance(data, dict):
@@ -494,11 +503,11 @@ def run_taste_lab(brief: Brief, client: QlooClient, llm: LLM, progress=None) -> 
         radar = radar_base(client, ev, brief, results, cities)
         idea_futs = [pool.submit(radar_idea, brief, row, llm) for row in radar]
         allowed = set(ev.items)
-        pb_fut = pool.submit(playbook, brief, results, radar, allowed, llm)
-        gap = taste_gap(client, ev, anchors, results)
+        gap = taste_gap(client, ev, anchors, results)  # Qloo calls run while the ideas are written
         for row, f in zip(radar, idea_futs):
             row.update(f.result())
-        plan = pb_fut.result()
+            row.pop("cand", None)
+        plan = playbook(brief, results, radar, allowed, llm)  # uses the partners the ideas kept
 
     return {
         "brief": brief.__dict__,
