@@ -88,6 +88,12 @@ def to_html(run: dict[str, Any]) -> str:
         parts.append("<h2>First 30 days (a hypothesis to test)</h2><ol>" + "".join(
             f"<li><b>{esc(s['when'])}:</b> {esc(s['action'])} <small>({esc(_ev_list(s.get('evidence', [])))})</small></li>"
             for s in run["playbook"]) + "</ol>")
+    g = run.get("gap")
+    if g:
+        miss = ", ".join(f"{esc(x['name'])} [{esc(x['evidence'])}]" for x in g["missing"]) or "none"
+        match = ", ".join(f"{esc(n)}: {v}%" for n, v in g["match"].items())
+        parts.append("<h2>Taste gap vs anchor brands</h2><p>Anchors: " + esc(", ".join(a["name"] for a in g["anchors"]))
+                     + f"<br><b>Closest persona:</b> {match}<br><b>Gap (their audience loves it, none of your personas do):</b> {miss}</p>")
     parts.append("<h2>Evidence</h2><table><tr><th>ID</th><th>Entity</th><th>Type</th><th>Affinity</th><th>Context</th></tr>")
     for e in run["evidence"].values():
         aff = "" if e["affinity"] is None else f"{e['affinity']:.2f}"

@@ -171,3 +171,17 @@ def test_radar_gap_playbook_and_whatif():
 def test_no_anchors_means_no_gap():
     run = run_taste_lab(brief(), QlooClient(api_key=None), LLM(api_key=None))
     assert run["gap"] is None and run["radar"]
+
+
+def test_ad_evidence_recovered_from_text():
+    from tastelab.agents import ad_copy
+
+    class Fake:
+        available = True
+        warnings: list = []
+        def json(self, *a, **k):
+            return {"headline": "H", "body": "Like Bon Iver [Q2].", "cta": "Go", "hook_reason": "Uses Q2", "evidence": []}
+
+    sig = {"signature": {"artist": [{"name": "Bon Iver", "affinity": .9, "evidence": "Q2"}]}}
+    out = ad_copy(brief(), {"name": "P", "tagline": ""}, sig, {"concerns": []}, Fake())
+    assert out["evidence"] == ["Q2"]

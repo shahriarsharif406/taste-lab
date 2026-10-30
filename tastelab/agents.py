@@ -256,8 +256,12 @@ Return JSON: {{"headline": str (<=8 words), "body": str (<=35 words), "cta": str
 The hook must reference a taste signal by name and cite its evidence id. No fake claims or testimonials."""
     data = llm.json(prompt, system="You are a direct-response copywriter who never fabricates claims.")
     if isinstance(data, dict) and data.get("headline"):
-        return {k: (str(data.get(k, "")) if k != "evidence" else _ids(data.get("evidence"), _sig_ids(sig)))
-                for k in ("headline", "body", "cta", "hook_reason", "evidence")}
+        out = {k: str(data.get(k, "")) for k in ("headline", "body", "cta", "hook_reason")}
+        allowed = _sig_ids(sig)
+        # models sometimes leave the evidence list empty but cite ids in the text; use those
+        out["evidence"] = (_ids(data.get("evidence"), allowed)
+                           or _ids([out["hook_reason"], out["body"], out["headline"]], allowed))
+        return out
     top = next((r for rows in sig["signature"].values() for r in rows), None)
     anchor = top["name"] if top else "what you love"
     return {
@@ -381,7 +385,7 @@ concern and re-measure. Cite evidence ids like Q12 for taste-based choices. No i
         for st in _as_list(data.get("steps")):
             if isinstance(st, dict) and st.get("action"):
                 steps.append({"when": str(st.get("when", f"Week {len(steps) + 1}")), "action": str(st["action"]),
-                              "evidence": _ids(st.get("evidence"), allowed)})
+                              "evidence": _ids(st.get("evidence"), allowed) or _ids([st["action"]], allowed)})
     if len(steps) >= 3:
         return steps[:4]
     tx, wx = by_name.get(top["persona"]["name"], {}), by_name.get(weak["persona"]["name"], {})
