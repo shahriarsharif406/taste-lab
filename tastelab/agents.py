@@ -94,8 +94,9 @@ Price point: {brief.price_point or 'not specified'}
 Brands the owner wants to be compared with: {', '.join(brief.anchors) or 'none given'}
 
 Return JSON: {{"personas": [{{"name": str, "tagline": str, "seeds": [{{"name": str, "type": "artist"|"brand"|"movie"}}]}}]}}
-Create {brief.num_personas} genuinely different personas: different life stages, motivations, budgets and attitudes to this kind of product (include at least one sceptical or price-sensitive buyer, and not only the obvious target customer). Each has 3 seeds: real, well-known artists, brands or
-movies that this persona genuinely loves (mix of types). Seeds are used to query a taste-graph API."""
+Create {brief.num_personas} genuinely different personas: different life stages, motivations, budgets and attitudes to this kind of product (include at least one sceptical or price-sensitive buyer, and not only the obvious target customer). Each has 3 seeds: one artist, one brand and one movie that this persona genuinely loves.
+Seeds are looked up in a taste-graph API by name, so use only globally famous, unambiguous names that are popular in the US and Europe:
+the full official title for films (never a bare generic word like "Office"), and the exact well-known name for artists and brands."""
     data = llm.json(prompt, system="You are a precise consumer-insights strategist. Output JSON only.")
     personas: list[dict[str, Any]] = []
     raw = data.get("personas") if isinstance(data, dict) else data
@@ -126,6 +127,23 @@ def build_signature(client: QlooClient, ev: Evidence, persona: dict[str, Any]) -
         hits = client.search(name, etype, take=1)
         if hits:
             resolved.append(hits[0])
+    if len(resolved) < 3:  # a seed that did not resolve leaves the signature thin; top up with famous US/EU names
+        have = {e.type for e in resolved}
+        used = {e.name.lower() for e in resolved}
+        for t in SIGNATURE_TYPES:
+            if len(resolved) >= 3:
+                break
+            if t in have:
+                continue
+            pool = sorted(demo_data.POOL[t], key=lambda n: demo_data.stable_int(persona["name"], n))
+            for cand in pool[:3]:
+                if cand.lower() in used:
+                    continue
+                hits = client.search(cand, t, take=1)
+                if hits:
+                    resolved.append(hits[0])
+                    used.add(hits[0].name.lower())
+                    break
     seed_ids = [e.id for e in resolved]
     seed_refs = [{"entity": e.name, "type": e.type, "evidence": ev.add(e, "search", f"seed for {persona['name']}")}
                  for e in resolved]

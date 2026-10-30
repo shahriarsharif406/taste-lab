@@ -46,6 +46,7 @@ def to_markdown(run: dict[str, Any]) -> str:
     if g:
         lines += ["", "## Taste gap vs anchor brands",
                   "Anchors: " + ", ".join(a["name"] for a in g["anchors"]),
+                  "Closest persona: " + "; ".join(f"{n} {v}%" for n, v in g["match"].items()),
                   "Gap: " + ", ".join(f"{x['name']} [{x['evidence']}]" for x in g["missing"])]
     if run.get("playbook"):
         lines += ["", "## First 30 days (a hypothesis to test)"]
@@ -54,7 +55,8 @@ def to_markdown(run: dict[str, Any]) -> str:
               "| ID | Entity | Type | Affinity | Why it was fetched |", "|---|---|---|---|---|"]
     for e in run["evidence"].values():
         aff = "" if e["affinity"] is None else f"{e['affinity']:.2f}"
-        lines.append(f"| {e['id']} | {e['entity']} | {e['type']} | {aff} | {e['context']} |")
+        cell = lambda v: str(v).replace("|", "/")  # a pipe inside a name would break the table
+        lines.append(f"| {e['id']} | {cell(e['entity'])} | {e['type']} | {aff} | {cell(e['context'])} |")
     lines += ["", "_Privacy: only aggregate taste data is used; no personal data about individuals._"]
     return "\n".join(lines)
 

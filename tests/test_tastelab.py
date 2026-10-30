@@ -185,3 +185,19 @@ def test_ad_evidence_recovered_from_text():
     sig = {"signature": {"artist": [{"name": "Bon Iver", "affinity": .9, "evidence": "Q2"}]}}
     out = ad_copy(brief(), {"name": "P", "tagline": ""}, sig, {"concerns": []}, Fake())
     assert out["evidence"] == ["Q2"] and "[Q2]" not in out["body"]
+
+
+def test_markdown_table_survives_pipe_in_name():
+    run = run_taste_lab(brief(), QlooClient(api_key=None), LLM(api_key=None))
+    first = next(iter(run["evidence"].values()))
+    first["entity"] = "TDQ Steaks | Toro Dorado"
+    md = to_markdown(run)
+    assert "TDQ Steaks / Toro Dorado" in md
+
+
+def test_thin_seed_list_is_topped_up():
+    from tastelab.agents import Evidence, build_signature
+
+    persona = {"name": "X", "tagline": "", "seeds": [("IKEA", "brand")]}
+    sig = build_signature(QlooClient(api_key=None), Evidence(), persona)
+    assert len(sig["seed_ids"]) >= 3
