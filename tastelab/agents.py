@@ -253,14 +253,18 @@ Taste signature from Qloo:
 {_sig_text(sig)}
 Their concerns: {reaction['concerns']}
 Return JSON: {{"headline": str (<=8 words), "body": str (<=35 words), "cta": str, "hook_reason": str, "evidence": [str]}}.
-The hook must reference a taste signal by name and cite its evidence id. No fake claims or testimonials."""
+The hook must reference a taste signal by name. Put the evidence id (like Q12) only in "evidence" and "hook_reason", never inside headline, body or cta.
+Rules: only claim features stated in the product description (do not invent features such as modular organisation); never mention a competitor
+or send the reader to another brand, the CTA must lead to {brief.product_name}; no fake claims or testimonials."""
     data = llm.json(prompt, system="You are a direct-response copywriter who never fabricates claims.")
     if isinstance(data, dict) and data.get("headline"):
         out = {k: str(data.get(k, "")) for k in ("headline", "body", "cta", "hook_reason")}
         allowed = _sig_ids(sig)
         # models sometimes leave the evidence list empty but cite ids in the text; use those
         out["evidence"] = (_ids(data.get("evidence"), allowed)
-                           or _ids([out["hook_reason"], out["body"], out["headline"]], allowed))
+                           or _ids([out["hook_reason"], out["body"], out["headline"], out["cta"]], allowed))
+        for k in ("headline", "body", "cta"):  # ad text a customer sees must not carry [Q12] markers
+            out[k] = re.sub(r"\s*\[Q\d+(?:\s*,\s*Q\d+)*\]", "", out[k]).strip()
         return out
     top = next((r for rows in sig["signature"].values() for r in rows), None)
     anchor = top["name"] if top else "what you love"

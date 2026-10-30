@@ -184,4 +184,4 @@ def test_ad_evidence_recovered_from_text():
 
     sig = {"signature": {"artist": [{"name": "Bon Iver", "affinity": .9, "evidence": "Q2"}]}}
     out = ad_copy(brief(), {"name": "P", "tagline": ""}, sig, {"concerns": []}, Fake())
-    assert out["evidence"] == ["Q2"]
+    assert out["evidence"] == ["Q2"] and "[Q2]" not in out["body"]
